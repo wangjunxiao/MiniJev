@@ -1,0 +1,17 @@
+[project]
+name = "minijev"
+version = "0.2.0"
+description = "A tinygrad-based decision model for Jev routing"
+requires-python = ">=3.11"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 150
+extend-exclude = ["__pycache__", "data", "models", "*.jsonl"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "W", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

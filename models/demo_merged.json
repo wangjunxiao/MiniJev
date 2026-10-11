@@ -1,0 +1,72 @@
+{
+  "checkpoint": "models\\merged_v1.safetensors",
+  "policy": "risk_ladder",
+  "decisions": [
+    {
+      "query": "床前明月光，疑是地上霜。请查找这段文字的作者和作品出处。",
+      "route": "rag",
+      "confidence": 0.9540163031680617,
+      "confidence_measure": "normalized_entropy",
+      "route_probs": {
+        "local": 0.003675603967166381,
+        "rag": 0.9905374385183021,
+        "cloud": 0.0034371501672036055,
+        "review": 0.002349807347327828
+      },
+      "route_logits": [
+        -1.9383091926574707,
+        3.6582210063934326,
+        -2.0053839683532715,
+        -2.385693311691284
+      ],
+      "distribution": {
+        "confidence": 0.9540163031680617,
+        "measure": "normalized_entropy",
+        "top_probability": 0.9905374385183022,
+        "runner_up": 0.0036756039671663816,
+        "margin": 0.9868618345511359,
+        "entropy_nats": 0.06374693962156255,
+        "normalized_entropy": 0.9540163031680617,
+        "effective_options": 1.0658226471487875,
+        "uniform_probability": 0.25
+      },
+      "policy": "risk_ladder",
+      "model_preferred": "rag",
+      "escalated_from": null,
+      "log_prob": -0.009507615962383567
+    },
+    {
+      "query": "先天下之忧而忧，后天下之乐而乐。请判断把它用于商业产品是否存在版权或法律风险。",
+      "route": "review",
+      "confidence": 0.9844537000933122,
+      "confidence_measure": "normalized_entropy",
+      "route_probs": {
+        "local": 0.00029891128814864135,
+        "rag": 0.0008390826922634504,
+        "cloud": 0.0016230151282339447,
+        "review": 0.9972389908913539
+      },
+      "route_logits": [
+        -3.3922953605651855,
+        -2.360132932662964,
+        -1.7004013061523438,
+        4.720303535461426
+      ],
+      "distribution": {
+        "confidence": 0.9844537000933122,
+        "measure": "normalized_entropy",
+        "top_probability": 0.9972389908913539,
+        "runner_up": 0.0016230151282339447,
+        "margin": 0.99561597576312,
+        "entropy_nats": 0.021551747896920003,
+        "normalized_entropy": 0.9844537000933122,
+        "effective_options": 1.0217856642285408,
+        "uniform_probability": 0.25
+      },
+      "policy": "risk_ladder",
+      "model_preferred": "review",
+      "escalated_from": null,
+      "log_prob": -0.0027648277247372325
+    }
+  ]
+}

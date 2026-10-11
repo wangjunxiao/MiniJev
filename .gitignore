@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Model checkpoints: regenerable from the data + a documented command line.
+# Only the small config/metric sidecars are worth keeping in review diffs.
+models/*.safetensors
+models/history/
+
+# Derived datasets. Every file under data/ except the committed fixtures and the
+# held-out benchmark is produced by a `python -m minijev.*` command that is recorded
+# in README.md, so the bytes do not need versioning.
+data/synthetic.jsonl
+data/train.jsonl
+data/val.jsonl
+data/test.jsonl
+data/merged_train.jsonl
+data/merged_val.jsonl
+data/merged_all_train.jsonl
+data/merged_all_val.jsonl
+data/hard_training.jsonl
+data/external/literary/*.jsonl
+data/external/literary/splits/
+data/external/massive/derived_v2/
+data/external/domains/*.jsonl
+
+# Raw third-party corpora are never committed (licence + size).
+data/external/routerbench/*.parquet
+data/external/routerbench/*.csv
+data/external/massive/*.tar.gz
+data/external/massive/1.1/
+
+# Superseded v1 derivation (kept on disk, replaced by derived_v2).
+data/external/massive/derived/
+
+# Local novel / document text used to build a domain supplement.
+data/external/**/*.txt

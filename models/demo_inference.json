@@ -1,0 +1,138 @@
+{
+  "checkpoint": "models\\minijev_phase1.safetensors",
+  "policy": "risk_ladder",
+  "decisions": [
+    {
+      "query": "把 12 加 34",
+      "route": "local",
+      "confidence": 0.999998654933841,
+      "confidence_measure": "normalized_entropy",
+      "route_probs": {
+        "local": 0.9999998935542123,
+        "rag": 9.146623025227014e-08,
+        "cloud": 2.0128615915571037e-09,
+        "review": 1.296669583167234e-08
+      },
+      "route_logits": [
+        10.653454780578613,
+        -5.5538411140441895,
+        -9.370253562927246,
+        -7.507426738739014
+      ],
+      "distribution": {
+        "confidence": 0.999998654933841,
+        "measure": "normalized_entropy",
+        "top_probability": 0.9999998935542124,
+        "runner_up": 9.146623025227015e-08,
+        "margin": 0.9999998020879821,
+        "entropy_nats": 1.8646576314995612e-06,
+        "normalized_entropy": 0.999998654933841,
+        "effective_options": 1.00000186465937,
+        "uniform_probability": 0.25
+      },
+      "policy": "risk_ladder",
+      "model_preferred": "local",
+      "escalated_from": null,
+      "log_prob": -1.0644579340512613e-07
+    },
+    {
+      "query": "你好",
+      "route": "local",
+      "confidence": 0.9928346978856093,
+      "confidence_measure": "normalized_entropy",
+      "route_probs": {
+        "local": 0.9987691222062045,
+        "rag": 0.00014906258337902176,
+        "cloud": 1.914718764407652e-07,
+        "review": 0.0010816237385399368
+      },
+      "route_logits": [
+        6.0801005363464355,
+        -2.7298121452331543,
+        -9.387192726135254,
+        -0.7479597330093384
+      ],
+      "distribution": {
+        "confidence": 0.9928346978856093,
+        "measure": "normalized_entropy",
+        "top_probability": 0.9987691222062046,
+        "runner_up": 0.001081623738539937,
+        "margin": 0.9976874984676647,
+        "entropy_nats": 0.009933217916900277,
+        "normalized_entropy": 0.9928346978856093,
+        "effective_options": 1.0099827160822592,
+        "uniform_probability": 0.25
+      },
+      "policy": "risk_ladder",
+      "model_preferred": "local",
+      "escalated_from": null,
+      "log_prob": -0.001231635946059502
+    },
+    {
+      "query": "写一篇关于机器学习的博客",
+      "route": "review",
+      "confidence": 0.30094390646028757,
+      "confidence_measure": "normalized_entropy",
+      "route_probs": {
+        "local": 0.02467170757344433,
+        "rag": 0.3162209274341745,
+        "cloud": 0.07763827783457881,
+        "review": 0.5814690871578022
+      },
+      "route_logits": [
+        -2.362497568130493,
+        0.18828639388084412,
+        -1.2160941362380981,
+        0.79740309715271
+      ],
+      "distribution": {
+        "confidence": 0.30094390646028757,
+        "measure": "normalized_entropy",
+        "top_probability": 0.5814690871578023,
+        "runner_up": 0.31622092743417457,
+        "margin": 0.26524815972362775,
+        "entropy_nats": 0.9690975205806022,
+        "normalized_entropy": 0.30094390646028757,
+        "effective_options": 2.635564842709105,
+        "uniform_probability": 0.25
+      },
+      "policy": "risk_ladder",
+      "model_preferred": "review",
+      "escalated_from": null,
+      "log_prob": -0.542197468956175
+    },
+    {
+      "query": "我不确定这算不算法律风险",
+      "route": "review",
+      "confidence": 0.6063882973536475,
+      "confidence_measure": "normalized_entropy",
+      "route_probs": {
+        "local": 0.0006991053991210795,
+        "rag": 0.0430743826607308,
+        "cloud": 0.12058038668088586,
+        "review": 0.8356461252592623
+      },
+      "route_logits": [
+        -4.6413187980651855,
+        -0.5204365849494934,
+        0.5089516043663025,
+        2.4448401927948
+      ],
+      "distribution": {
+        "confidence": 0.6063882973536475,
+        "measure": "normalized_entropy",
+        "top_probability": 0.8356461252592623,
+        "runner_up": 0.12058038668088586,
+        "margin": 0.7150657385783764,
+        "entropy_nats": 0.5456616838494376,
+        "normalized_entropy": 0.6063882973536475,
+        "effective_options": 1.7257499055117207,
+        "uniform_probability": 0.25
+      },
+      "policy": "risk_ladder",
+      "model_preferred": "review",
+      "escalated_from": null,
+      "log_prob": -0.17955005065653803
+    }
+  ]
+}

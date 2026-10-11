@@ -1,0 +1,5 @@
+# Keep the working tree byte-identical across platforms. The test suite and the
+# fixture comparisons assume LF; letting Git rewrite endings hides real diffs.
+* text=auto eol=lf
+*.safetensors binary
+*.png binary

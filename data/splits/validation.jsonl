@@ -1,0 +1,4 @@
+{"query": "根据公司知识库找出报销标准", "confidence": 0.76, "route": "rag", "context": []}
+{"query": "今天星期几", "confidence": 0.9, "route": "local", "context": []}
+{"query": "判断这个医疗建议是否适合我", "confidence": 0.18, "route": "review", "context": []}
+{"query": "为这个产品制定完整的市场策略", "confidence": 0.4, "route": "cloud", "context": []}

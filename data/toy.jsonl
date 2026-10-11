@@ -1,0 +1,32 @@
+{"query": "我不确定这段内容是否涉及安全问题（示例 4）", "confidence": 0.2, "route": "review", "context": []}
+{"query": "根据公司知识库找出报销标准", "confidence": 0.76, "route": "rag", "context": []}
+{"query": "为这个产品制定完整的市场策略", "confidence": 0.4, "route": "cloud", "context": []}
+{"query": "搜索项目文档里的部署命令", "confidence": 0.74, "route": "rag", "context": []}
+{"query": "判断这个医疗建议是否适合我（示例 5）", "confidence": 0.18, "route": "review", "context": []}
+{"query": "把 2 加 2（示例 5）", "confidence": 0.98, "route": "local", "context": []}
+{"query": "今天星期几（示例 7）", "confidence": 0.9, "route": "local", "context": []}
+{"query": "分析这段代码的并发问题（示例 6）", "confidence": 0.52, "route": "cloud", "context": []}
+{"query": "你好", "confidence": 0.98, "route": "local", "context": []}
+{"query": "搜索项目文档里的部署命令（示例 6）", "confidence": 0.74, "route": "rag", "context": []}
+{"query": "查一下产品手册中的安装步骤", "confidence": 0.78, "route": "rag", "context": []}
+{"query": "查看这份内部政策的适用范围（示例 7）", "confidence": 0.72, "route": "rag", "context": []}
+{"query": "为这个产品制定完整的市场策略（示例 7）", "confidence": 0.4, "route": "cloud", "context": []}
+{"query": "我不确定这段内容是否涉及安全问题", "confidence": 0.2, "route": "review", "context": []}
+{"query": "设计一个新的分布式训练算法（示例 5）", "confidence": 0.45, "route": "cloud", "context": []}
+{"query": "根据公司知识库找出报销标准（示例 5）", "confidence": 0.76, "route": "rag", "context": []}
+{"query": "判断这个医疗建议是否适合我", "confidence": 0.18, "route": "review", "context": []}
+{"query": "这件事我完全不知道该怎么判断", "confidence": 0.12, "route": "review", "context": []}
+{"query": "把 hello 翻译成中文（示例 6）", "confidence": 0.92, "route": "local", "context": []}
+{"query": "比较这两份方案的风险和成本", "confidence": 0.58, "route": "cloud", "context": []}
+{"query": "处理一项可能有法律风险的决定", "confidence": 0.16, "route": "review", "context": []}
+{"query": "分析这段代码的并发问题", "confidence": 0.52, "route": "cloud", "context": []}
+{"query": "查看这份内部政策的适用范围", "confidence": 0.72, "route": "rag", "context": []}
+{"query": "今天星期几", "confidence": 0.9, "route": "local", "context": []}
+{"query": "设计一个新的分布式训练算法", "confidence": 0.45, "route": "cloud", "context": []}
+{"query": "把 hello 翻译成中文", "confidence": 0.92, "route": "local", "context": []}
+{"query": "把 2 加 2", "confidence": 0.98, "route": "local", "context": []}
+{"query": "这件事我完全不知道该怎么判断（示例 7）", "confidence": 0.12, "route": "review", "context": []}
+{"query": "查一下产品手册中的安装步骤（示例 4）", "confidence": 0.78, "route": "rag", "context": []}
+{"query": "你好（示例 4）", "confidence": 0.98, "route": "local", "context": []}
+{"query": "处理一项可能有法律风险的决定（示例 6）", "confidence": 0.16, "route": "review", "context": []}
+{"query": "比较这两份方案的风险和成本（示例 4）", "confidence": 0.58, "route": "cloud", "context": []}

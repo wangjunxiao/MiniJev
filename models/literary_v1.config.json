@@ -1,0 +1,8 @@
+{
+  "vocab_size": 257,
+  "max_seq_len": 128,
+  "embed_dim": 64,
+  "hidden_dim": 64,
+  "num_routes": 4,
+  "pad_id": 0
+}

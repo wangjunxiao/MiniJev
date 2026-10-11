@@ -1,0 +1,72 @@
+{
+  "checkpoint": "models\\exp_transformer_merged.safetensors",
+  "policy": "risk_ladder",
+  "decisions": [
+    {
+      "query": "床前明月光，疑是地上霜。请查找这段文字的作者和作品出处。",
+      "route": "rag",
+      "confidence": 0.9999201428180792,
+      "confidence_measure": "normalized_entropy",
+      "route_probs": {
+        "local": 3.910802860837692e-06,
+        "rag": 0.9999919454557119,
+        "cloud": 2.817889472223998e-06,
+        "review": 1.32585195505957e-06
+      },
+      "route_logits": [
+        -4.548274040222168,
+        7.9034857749938965,
+        -4.876028537750244,
+        -5.6299614906311035
+      ],
+      "distribution": {
+        "confidence": 0.9999201428180792,
+        "measure": "normalized_entropy",
+        "top_probability": 0.9999919454557119,
+        "runner_up": 3.910802860837692e-06,
+        "margin": 0.999988034652851,
+        "entropy_nats": 0.0001107055609917631,
+        "normalized_entropy": 0.9999201428180792,
+        "effective_options": 1.0001107116890786,
+        "uniform_probability": 0.25
+      },
+      "policy": "risk_ladder",
+      "model_preferred": "rag",
+      "escalated_from": null,
+      "log_prob": -8.054576726110183e-06
+    },
+    {
+      "query": "把 12 加 34",
+      "route": "local",
+      "confidence": 0.9999998750672897,
+      "confidence_measure": "normalized_entropy",
+      "route_probs": {
+        "local": 0.9999999914254073,
+        "rag": 1.8150922150627566e-09,
+        "cloud": 2.0672807734904493e-10,
+        "review": 6.552772471568884e-09
+      },
+      "route_logits": [
+        11.089612007141113,
+        -9.037517547607422,
+        -11.210004806518555,
+        -7.75376558303833
+      ],
+      "distribution": {
+        "confidence": 0.9999998750672897,
+        "measure": "normalized_entropy",
+        "top_probability": 0.9999999914254073,
+        "runner_up": 6.552772471568884e-09,
+        "margin": 0.9999999848726349,
+        "entropy_nats": 1.7319351175949668e-07,
+        "normalized_entropy": 0.9999998750672897,
+        "effective_options": 1.0000001731935269,
+        "uniform_probability": 0.25
+      },
+      "policy": "risk_ladder",
+      "model_preferred": "local",
+      "escalated_from": null,
+      "log_prob": -8.574592739298952e-09
+    }
+  ]
+}
