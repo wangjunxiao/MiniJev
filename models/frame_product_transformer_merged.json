@@ -1,0 +1,2652 @@
+{
+  "rows": 960,
+  "groups": 320,
+  "accuracy": 0.27708333333333335,
+  "macro_f1": 0.24328128168486546,
+  "per_route_recall": {
+    "cloud": 0.2916666666666667,
+    "local": 0.0,
+    "rag": 0.3625,
+    "review": 0.45416666666666666
+  },
+  "slot_accuracy": {
+    "risk": {
+      "low": 0.1349206349206349,
+      "high": 0.4647887323943662,
+      "medium": 0.23577235772357724
+    },
+    "underspecified": {
+      "False": 0.22508038585209003,
+      "True": 1.0
+    },
+    "derivation": {
+      "extract": 0.1722689075630252,
+      "construct": 0.4634146341463415
+    },
+    "steps": {
+      "1": 0.17703349282296652,
+      "2+": 0.3783783783783784
+    },
+    "source_class": {
+      "external": 0.32679738562091504,
+      "internal": 0.17365269461077845
+    }
+  },
+  "pairs": {
+    "pairs": 137,
+    "both_correct": 0.08029197080291971,
+    "collapsed": 0.31386861313868614,
+    "neither_correct": 0.635036496350365
+  },
+  "minimal_pairs": {
+    "pairs": 137,
+    "both_correct": 0.08029197080291971,
+    "collapsed": 0.31386861313868614,
+    "neither_correct": 0.635036496350365
+  },
+  "outcomes": [
+    {
+      "left": "xp000380",
+      "right": "xp006318",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "cloud"
+      ],
+      "predicted": [
+        "review",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp000399",
+      "right": "xp007496",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "cloud"
+      ],
+      "predicted": [
+        "review",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp000742",
+      "right": "xp003393",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": true,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp000760",
+      "right": "xp015229",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "cloud"
+      ],
+      "predicted": [
+        "cloud",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp001007",
+      "right": "xp006299",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp001026",
+      "right": "xp008218",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp001179",
+      "right": "xp012266",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "cloud"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp001198",
+      "right": "xp014888",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "cloud"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp001235",
+      "right": "xp009700",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp001482",
+      "right": "xp016179",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp001882",
+      "right": "xp017054",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp002471",
+      "right": "xp018764",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": true,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp002964",
+      "right": "xp017091",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp003154",
+      "right": "xp021708",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "cloud"
+      ],
+      "predicted": [
+        "cloud",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp003421",
+      "right": "xp010613",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp003554",
+      "right": "xp028834",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp003990",
+      "right": "xp024615",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp007353",
+      "right": "xp029042",
+      "deciding_slots": [
+        "derivation"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": true,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp000576",
+      "right": "xp005913",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp000843",
+      "right": "xp009186",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp000862",
+      "right": "xp010915",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp001135",
+      "right": "xp005145",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp001765",
+      "right": "xp009328",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp002240",
+      "right": "xp014230",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp002492",
+      "right": "xp004674",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "local"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp002682",
+      "right": "xp003915",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "rag"
+      ],
+      "predicted": [
+        "review",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp002687",
+      "right": "xp013518",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp003377",
+      "right": "xp013087",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "review",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp004034",
+      "right": "xp007338",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "review",
+        "cloud"
+      ],
+      "both_correct": true,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp004136",
+      "right": "xp005715",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp004979",
+      "right": "xp005304",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "review"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp005086",
+      "right": "xp017305",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp005336",
+      "right": "xp030608",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": true,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp005416",
+      "right": "xp007242",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "review"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp005891",
+      "right": "xp034849",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "review"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp006162",
+      "right": "xp011309",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp006307",
+      "right": "xp014133",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp006631",
+      "right": "xp007755",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "review"
+      ],
+      "predicted": [
+        "rag",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp007088",
+      "right": "xp009484",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "review"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp007568",
+      "right": "xp009542",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "cloud",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp007761",
+      "right": "xp007969",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp007961",
+      "right": "xp018129",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "review"
+      ],
+      "predicted": [
+        "rag",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp008062",
+      "right": "xp015090",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "cloud",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp008208",
+      "right": "xp018718",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "review"
+      ],
+      "predicted": [
+        "cloud",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp008342",
+      "right": "xp024399",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "review"
+      ],
+      "predicted": [
+        "rag",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp008988",
+      "right": "xp025900",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "review"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp009481",
+      "right": "xp025976",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "review"
+      ],
+      "predicted": [
+        "review",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp009837",
+      "right": "xp015500",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": true,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp010211",
+      "right": "xp025602",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp010388",
+      "right": "xp015728",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": true,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp010647",
+      "right": "xp034361",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp010829",
+      "right": "xp018713",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "cloud",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp010950",
+      "right": "xp012450",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "cloud",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp011958",
+      "right": "xp012663",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "rag",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp012375",
+      "right": "xp019784",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp012453",
+      "right": "xp017926",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "rag",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp012839",
+      "right": "xp022074",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": true,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp014085",
+      "right": "xp024229",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp014169",
+      "right": "xp023157",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "cloud",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp016099",
+      "right": "xp021683",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp016612",
+      "right": "xp026282",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp016662",
+      "right": "xp020859",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp017361",
+      "right": "xp025570",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "cloud",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp018956",
+      "right": "xp026330",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "cloud",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp019189",
+      "right": "xp022000",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "review",
+        "cloud"
+      ],
+      "both_correct": true,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp020861",
+      "right": "xp026597",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp020880",
+      "right": "xp034767",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp022579",
+      "right": "xp026248",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp023214",
+      "right": "xp025625",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "review",
+        "cloud"
+      ],
+      "predicted": [
+        "review",
+        "cloud"
+      ],
+      "both_correct": true,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp026095",
+      "right": "xp033525",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp026176",
+      "right": "xp030966",
+      "deciding_slots": [
+        "risk"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "review"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": true,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp006917",
+      "right": "xp009482",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "review",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp007676",
+      "right": "xp010963",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp008474",
+      "right": "xp011609",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp009900",
+      "right": "xp011781",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp010698",
+      "right": "xp011819",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp010926",
+      "right": "xp012351",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "review",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp010945",
+      "right": "xp013624",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp011096",
+      "right": "xp011837",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp011192",
+      "right": "xp013643",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp011552",
+      "right": "xp012331",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp012008",
+      "right": "xp012445",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp012027",
+      "right": "xp013243",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp012427",
+      "right": "xp014061",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp013737",
+      "right": "xp014953",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp014080",
+      "right": "xp014137",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp014270",
+      "right": "xp015790",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp014307",
+      "right": "xp016625",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp014384",
+      "right": "xp016569",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp014612",
+      "right": "xp016588",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp014744",
+      "right": "xp017670",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp015828",
+      "right": "xp017842",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp016454",
+      "right": "xp019266",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp017215",
+      "right": "xp018849",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp017252",
+      "right": "xp019608",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp018069",
+      "right": "xp020653",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "rag",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": true
+    },
+    {
+      "left": "xp018222",
+      "right": "xp019096",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp018260",
+      "right": "xp019533",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "review",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp018316",
+      "right": "xp020843",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp018544",
+      "right": "xp021413",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp019856",
+      "right": "xp020787",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp019932",
+      "right": "xp020806",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp020084",
+      "right": "xp021281",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "cloud",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp020121",
+      "right": "xp021774",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp021489",
+      "right": "xp024168",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp021945",
+      "right": "xp024396",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp021984",
+      "right": "xp022535",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "cloud",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp022401",
+      "right": "xp025403",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp023218",
+      "right": "xp025517",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp023238",
+      "right": "xp025043",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp023332",
+      "right": "xp026011",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": false,
+      "collapsed": false
+    },
+    {
+      "left": "xp023485",
+      "right": "xp026848",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp023599",
+      "right": "xp026867",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp024625",
+      "right": "xp029033",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp025460",
+      "right": "xp026239",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp026315",
+      "right": "xp026524",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "cloud",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp026714",
+      "right": "xp027379",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "cloud",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp027114",
+      "right": "xp029242",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp027152",
+      "right": "xp029717",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp027816",
+      "right": "xp028006",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp029052",
+      "right": "xp033023",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp029165",
+      "right": "xp029260",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp029184",
+      "right": "xp029830",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "cloud",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp029507",
+      "right": "xp029925",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp029508",
+      "right": "xp033251",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "review",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp029526",
+      "right": "xp030704",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp031693",
+      "right": "xp034391",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp032130",
+      "right": "xp034581",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "cloud",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp032243",
+      "right": "xp032452",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp032604",
+      "right": "xp032642",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "cloud",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": true
+    },
+    {
+      "left": "xp033193",
+      "right": "xp033554",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp033611",
+      "right": "xp034390",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp034657",
+      "right": "xp035873",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "local",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp034827",
+      "right": "xp035682",
+      "deciding_slots": [
+        "source_class"
+      ],
+      "minimal": true,
+      "expected": [
+        "rag",
+        "local"
+      ],
+      "predicted": [
+        "review",
+        "rag"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp015815",
+      "right": "xp034846",
+      "deciding_slots": [
+        "steps"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "rag"
+      ],
+      "predicted": [
+        "review",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp028869",
+      "right": "xp036234",
+      "deciding_slots": [
+        "steps"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "local"
+      ],
+      "predicted": [
+        "rag",
+        "review"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    },
+    {
+      "left": "xp033922",
+      "right": "xp035036",
+      "deciding_slots": [
+        "steps"
+      ],
+      "minimal": true,
+      "expected": [
+        "cloud",
+        "rag"
+      ],
+      "predicted": [
+        "rag",
+        "cloud"
+      ],
+      "both_correct": false,
+      "neither_correct": true,
+      "collapsed": false
+    }
+  ]
+}

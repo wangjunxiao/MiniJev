@@ -14,6 +14,7 @@ from collections.abc import Sequence
 import pytest
 
 from minijev.boundary import evaluate_boundary, format_report
+from minijev.frame_product import generate_frame_product, product_rows
 from minijev.frames import (
     BENCHMARK_FRAME_IDS,
     CONTRAST_PAIRS,
@@ -155,3 +156,12 @@ def test_an_empty_benchmark_file_yields_a_zero_report():
     result = evaluate_boundary(StubRouter({}), [])
     assert result["rows"] == 0
     assert result["pairs"]["pairs"] == 0
+
+
+def test_product_benchmark_derives_disjoint_pairs_automatically():
+    product_rows_ = product_rows(generate_frame_product(), split="benchmark")
+    exact = {row.query: row.route for row in product_rows_}
+    result = evaluate_boundary(StubRouter(exact), product_rows_)
+    assert result["rows"] == 960
+    assert result["minimal_pairs"]["pairs"] >= 100
+    assert result["minimal_pairs"]["collapsed"] == 0.0

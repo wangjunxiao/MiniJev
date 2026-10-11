@@ -82,7 +82,12 @@ def _group_predictions(samples: Sequence[JevSample], predicted: Sequence[Route])
     return by_group
 
 
-def evaluate_boundary(router: Router, samples: Sequence[JevSample]) -> dict[str, Any]:
+def evaluate_boundary(
+    router: Router,
+    samples: Sequence[JevSample],
+    *,
+    contrast_pairs: Sequence[tuple[str, str]] | None = None,
+) -> dict[str, Any]:
     """Accuracy, per-slot accuracy and pair separation on a boundary benchmark."""
     decisions = router.decide([sample.query for sample in samples])
     predicted = [decision.route for decision in decisions]
@@ -109,7 +114,8 @@ def evaluate_boundary(router: Router, samples: Sequence[JevSample]) -> dict[str,
             buckets.setdefault(key, []).append(by_group.get(str(sample.metadata.get("semantic_group_id", ""))) is sample.route)
         slot_accuracy[slot] = {key: (sum(values) / len(values) if values else 0.0) for key, values in buckets.items()}
 
-    outcomes = _pair_outcomes(samples, by_group)
+    pairs = tuple(contrast_pairs) if contrast_pairs is not None else _pairs_for_samples(samples)
+    outcomes = _pair_outcomes(samples, by_group, pairs)
     minimal = [outcome for outcome in outcomes if outcome.minimal]
 
     def summarise(subset: Sequence[PairOutcome]) -> dict[str, Any]:
@@ -146,7 +152,44 @@ def _slot_value(frame: RouteFrame, slot: str) -> str:
     return str(getattr(value, "value", value))
 
 
-def _pair_outcomes(samples: Sequence[JevSample], by_group: dict[str, Route]) -> list[PairOutcome]:
+def _pairs_for_samples(samples: Sequence[JevSample]) -> tuple[tuple[str, str], ...]:
+    """Use the fixed hand-written pairs, or derive disjoint product pairs."""
+    if any(sample.metadata.get("generator") == "minijev.frame_product" for sample in samples):
+        from itertools import combinations
+
+        from .frames import route_from_frame
+
+        frames = {}
+        for sample in samples:
+            frame = load_frame(sample)
+            frame_id = sample.metadata.get("frame_id")
+            if frame is not None and frame_id is not None:
+                frames.setdefault(str(frame_id), (sample.route, frame))
+        candidates: list[tuple[str, str, str]] = []
+        for left_id, right_id in combinations(sorted(frames), 2):
+            left_route, left_frame = frames[left_id]
+            right_route, right_frame = frames[right_id]
+            differing = deciding_slots_differing(left_frame, right_frame)
+            if len(differing) == 1 and route_from_frame(left_frame) is not route_from_frame(right_frame):
+                candidates.append((differing[0], left_id, right_id))
+        used: set[str] = set()
+        pairs: list[tuple[str, str]] = []
+        for _, left_id, right_id in sorted(candidates):
+            if left_id in used or right_id in used:
+                continue
+            pairs.append((left_id, right_id))
+            used.update((left_id, right_id))
+        # A caller may intentionally concatenate the original and product
+        # benchmarks. Preserve the hand-written pairs in that case, then add
+        # generated pairs without duplicating an id pair.
+        present_ids = {str(sample.metadata.get("frame_id")) for sample in samples}
+        fixed = [pair for pair in CONTRAST_PAIRS if pair[0] in present_ids and pair[1] in present_ids]
+        seen = set(fixed)
+        return tuple(fixed + [pair for pair in pairs if pair not in seen])
+    return CONTRAST_PAIRS
+
+
+def _pair_outcomes(samples: Sequence[JevSample], by_group: dict[str, Route], contrast_pairs: Sequence[tuple[str, str]]) -> list[PairOutcome]:
     """Join the two halves of every contrast pair that is actually in the benchmark."""
     expected: dict[str, tuple[Route, RouteFrame]] = {}
     for sample in samples:
@@ -156,13 +199,24 @@ def _pair_outcomes(samples: Sequence[JevSample], by_group: dict[str, Route]) -> 
         expected[str(sample.metadata.get("frame_id"))] = (sample.route, frame)
 
     outcomes: list[PairOutcome] = []
-    for left_id, right_id in CONTRAST_PAIRS:
+    frame_predictions: dict[str, Route] = {}
+    # Build this from the actual rows so generated product groups (whose semantic
+    # id is ``frame-product:<id>``) use the same analyser as the hand-written set.
+    for sample in samples:
+        frame_id = sample.metadata.get("frame_id")
+        if frame_id is None:
+            continue
+        semantic_group = str(sample.metadata.get("semantic_group_id", ""))
+        if semantic_group in by_group:
+            frame_predictions.setdefault(str(frame_id), by_group[semantic_group])
+
+    for left_id, right_id in contrast_pairs:
         if left_id not in expected or right_id not in expected:
             continue
         left_route, left_frame = expected[left_id]
         right_route, right_frame = expected[right_id]
-        left_predicted = by_group.get(f"frame:{left_id}")
-        right_predicted = by_group.get(f"frame:{right_id}")
+        left_predicted = frame_predictions.get(left_id, by_group.get(f"frame:{left_id}"))
+        right_predicted = frame_predictions.get(right_id, by_group.get(f"frame:{right_id}"))
         if left_predicted is None or right_predicted is None:
             continue
         outcomes.append(
