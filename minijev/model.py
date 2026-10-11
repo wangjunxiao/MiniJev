@@ -25,13 +25,20 @@ from tinygrad.nn import Embedding, LayerNorm, Linear
 from tinygrad.nn.state import get_state_dict, load_state_dict, safe_load, safe_save
 
 from .config import JevConfig
+from .frames import slot_vocabulary
 
 
 @dataclass
 class JevOutputs:
-    """Raw model outputs before any policy converts them into a route."""
+    """Raw model outputs before any policy converts them into a route.
+
+    `slot_logits` is present only when the config enabled auxiliary supervision. The
+    inference path never reads it: the decision comes from `route_logits` alone, so the
+    auxiliary heads can be ignored at deployment without changing a single decision.
+    """
 
     route_logits: Tensor
+    slot_logits: dict[str, Tensor] | None = None
 
 
 class TransformerBlock:
@@ -81,6 +88,12 @@ class TinyJev:
         # reset its weights on every batch and omit it from checkpoints.
         self.transformer_projection = Linear(self.config.embed_dim, self.config.hidden_dim) if self.config.encoder_type == "transformer" else None
         self.route_head = Linear(self.config.hidden_dim, self.config.num_routes)
+        # Auxiliary heads, one per deciding slot. They are small (a few hundred
+        # parameters in total) and exist only to shape the shared representation during
+        # training; the decision path never reads them.
+        self.slot_heads = (
+            {slot: Linear(self.config.hidden_dim, len(vocabulary)) for slot, vocabulary in slot_vocabulary().items()} if self.config.aux_slots else {}
+        )
 
     def __call__(self, input_ids: Tensor, attention_mask: Tensor) -> JevOutputs:
         if input_ids.ndim != 2 or attention_mask.shape != input_ids.shape:
@@ -98,7 +111,8 @@ class TinyJev:
         else:
             pooled = (hidden * mask).sum(axis=1) / mask.sum(axis=1).maximum(1.0)
             shared = self.encoder(pooled).relu()
-        return JevOutputs(route_logits=self.route_head(shared))
+        slot_logits = {slot: head(shared) for slot, head in self.slot_heads.items()} if self.slot_heads else None
+        return JevOutputs(route_logits=self.route_head(shared), slot_logits=slot_logits)
 
 
 def config_path(checkpoint: str | Path) -> Path:

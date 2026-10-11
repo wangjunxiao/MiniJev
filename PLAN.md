@@ -6,7 +6,107 @@
 
 ---
 
-## 状态（2026-09-29 → 10-01 持续更新）
+## 状态（2026-09-29 → 10-11 持续更新）
+
+### 本轮（2026-10-11）：四领域语料 + 上下文状态 + 槽位辅助监督
+
+按提议做了三件事：训练集按**新闻/哲学/文学/学术**四域划分、给样本加**上下文状态**、
+把 **frame 槽位当辅助监督目标**。三件都落地，两件给出**负面但有信息量**的结果。
+
+#### 1. 四领域语料（结构上是对的）
+
+`minijev/domains.py`：每域每段文本配**同样四个任务**，路由由 frame 推导，所以每段文本恰好贡献
+四路各一行，从构造上保证 **25/25/25/25**（`domain_audit` 可复算，测试锁死）。
+
+这条约束不是洁癖，是上一轮量出来的：MASSIVE 派生 rubric 里 **cloud = 0**，并进去后 pooled 的
+cloud recall 从 0.58 掉到 0.12、transformer 掉到 **0.00**。**缺席的类别会被学成「不存在」**。
+
+#### 2. 上下文状态（机制通了，数据严重不足 —— 负面）
+
+新增 `minijev/contexts.py` + tokenizer **轮次分隔符**（`turn_sep_id=257` / `vocab_size=258`，
+写进 sidecar，单轮 checkpoint 仍按 257 加载）。**context pair = 同一句话、不同状态、不同路由**：
+
+```
+query:  这两种能不能一起用
+ctx A:  我在整理两种清洁剂的成分表。          -> local
+ctx B:  我母亲在吃降压药，医生又开了安眠药。   -> review
+```
+
+**实测（argmax，6 组留出 pair）**：
+
+| 臂 | collapse | both_correct |
+|---|---:|---:|
+| plain（无分隔符） | **16.7%** | 16.7% |
+| aux | 50.0% | 0.0% |
+| aux+context | 50.0% | 0.0% |
+
+**加了 context 训练反而更差。** 训练侧只有 **6 组 / 24 行**，分隔符 id 只在这 24/4201 行出现过，
+embedding 基本没训练。另外修正我自己的一个说法：**分隔符不是用上下文的前提**——plain 臂把上下文与
+请求直接拼接，上下文文字照样在输入里，所以能蒙对 1/6。探针仍然有效：**6 组里最多对 1 组，
+没人真正会用状态**。结论：这条路要几百组样本才能评估。
+
+#### 3. 槽位辅助监督（方向为正，幅度小，未达显著 —— 半负面）
+
+`JevConfig.aux_slots` + 五个头，`--aux-weight` 开启。三条性质测试锁死：标签与 frame 一致、
+**决策路径不读这些头**、**不是容量把戏**（780 / 20,868 = **3.7%**）。
+
+| 臂 | 合成test | news | phil | lit | acad | hard acc | **hard collapse** | **product collapse(137对)** |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| plain | 0.578 | 0.778 | **0.833** | 0.917 | 0.667 | 0.4638 | 21.1% | 5.8% |
+| **aux** | **0.593** | 0.778 | 0.806 | **0.972** | 0.667 | **0.4783** | **15.8%** | **3.6%** |
+| aux+context | 0.588 | 0.750 | 0.833 | 0.944 | 0.583 | 0.4783 | 21.1% | 2.9% |
+
+- **两个留出集的 collapse 同向下降**：hard 21.1%→15.8%、product 5.8%→3.6%；
+  `both_correct` 在 product 上 92.0%→96.4%（137 对）。
+- 但 hard 上 8 组最小对里 3→2 组，是噪声；product 上 5.8% vs 3.6% 大约差 1 个标准误。
+  **所以「试试看」的答案是：方向一致、代价可忽略（<4% 参数、推理路径零改动）、
+  但现有基准还证不到显著。** 留作默认关闭的可选项是合理的。
+- 注意 product 上**准确率已经饱和**（96-97%），但 **collapse rate 仍然可分辨**——说明这个基准
+  该看的是 collapse，不是 accuracy。
+
+#### 4. 顺带发现：`frame_product` 的生成文本**太直白**（构造批评）
+
+生成文本把来源写在句子里——"查**设备里的**安装步骤，直接列出结果，然后核对关键依据"。模型只要
+学会"设备里的→local"这种**显式关键词**就能拿 96+。**难例之所以难，正是因为线索不可靠或缺失**，
+所以建议生成文本时**不要命名来源**，让来源只能从动作或上下文推出。它的 pair 分析仍然有价值。
+
+#### 5. 修掉的一个真缺陷（frame_product）
+
+差分测试发现 **27 条 query 文本重复**：underspecified 的措辞不含 derivation/steps，6 个组合生成
+同一句话；**重复文本跨 train/benchmark 就是泄漏**。修复：underspecified 的 derivation/steps
+**语义上本就未定义**，钉到规范值（EXTRACT/1），使文本成为 frame 的单射函数。
+现在 **3840 行文本全唯一**，`_candidate_cases` 加断言防回退。
+
+#### 6. 版本控制
+
+`git init` 完成（88 文件，`.git` 221 KiB，checkpoint/原始语料/派生 JSONL 全部 gitignore）。
+基线提交 + 本轮改动待提交。
+
+---
+
+### 历史轮（2026-10-11）：槽位叉乘生成已落地
+
+沿用上一轮的结论，先扩充测量仪器，再考虑多任务槽位监督。新增
+`minijev.frame_product`，把 `predicate × object × source × derivation × steps × risk × underspecified`
+的合法组合生成成可审计的 `RouteFrame`，路由仍由 `frames.route_from_frame` 唯一推导。
+
+- 默认生成 **1,280 frame / 3,840 行**，四路各 320 frame，逐路留出 80 frame 作为 benchmark；
+  训练侧 960 frame，benchmark 320 frame，所有变体按 semantic group 同侧。
+- 生成 benchmark 自动从留出 frame 中找出 **137 组互不复用的最小对**；`minijev.boundary`
+  会自动识别 `slot-product-v1` 并报告这些对的 collapse rate，不再把千级 frame 当成只有总准确率的平面集。
+- 产物为 `data/frame_product_train.jsonl`、`data/frame_product_benchmark.jsonl` 和
+  `data/frame_product_manifest.json`；manifest 固化槽位、路由和 split 计数。
+- 生成器与审计有独立测试，默认产品保证四路平衡、全部 deciding slot 有覆盖、行文本唯一，且
+  不会把 benchmark 的语义组泄漏进训练侧。
+
+这一步只扩大边界证据，不改变 pooled 默认编码器，也不把生成 benchmark 自动并入训练命令。
+下一步应在固定 seed / policy 下用 `frame_product_train.jsonl` 重训四臂，并用生成 benchmark 与原始
+`hard_benchmark.jsonl` 分开报告 collapse rate；多任务槽位监督仍排在这之后。
+
+作为链路烟雾测试，直接拿旧 checkpoint 做零样本 product benchmark 得到 pooled / merged
+`acc=0.3125, collapsed=61.3%`，transformer / merged `acc=0.2771, collapsed=31.4%`。
+这两个数字只证明新 benchmark 和 pair 分析可运行；训练语料没有覆盖 product frame，不能用来改写
+编码器结论，必须先按同一 product train 重训再比较。
 
 ### 最新一轮（10-01 夜）：hard 集重建为 frame 标注 + 边界基准 —— **默认编码器仍不换，且证据更强了**
 

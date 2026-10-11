@@ -24,11 +24,12 @@ from .confidence import DEFAULT_MEASURE, distribution_shape
 from .config import DATA_DIR, DEFAULT_CHECKPOINT, DEFAULT_METRICS, JevConfig
 from .data import describe
 from .evaluation import classification_report, confidence_audit, majority_baseline
+from .frames import slot_targets
 from .model import TinyJev, load_checkpoint, save_checkpoint
-from .objectives import supervised_loss
+from .objectives import slot_loss, supervised_loss
 from .policies import Policy, RiskLadderPolicy
 from .schema import ROUTE_INDEX, JevSample, Route, RouteScores
-from .tokenizer import ByteTokenizer
+from .tokenizer import TURN_SEPARATOR_ID, ByteTokenizer
 
 DEFAULT_LABELS: tuple[Route, ...] = (Route.LOCAL, Route.RAG)
 
@@ -51,6 +52,9 @@ class TrainingConfig:
     seed: int = 7
     weight_by_agreement: bool = True
     label_smoothing: float = 0.0
+    use_context: bool = False
+    aux_weight: float = 0.0
+    """Weight on the deciding-slot auxiliary loss. 0 disables the heads entirely."""
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -79,8 +83,17 @@ def batches(samples: Sequence[JevSample], batch_size: int, order: Sequence[int] 
 def tensors(
     tokenizer: ByteTokenizer, samples: Sequence[JevSample], *, weight_by_agreement: bool = True
 ) -> tuple[Tensor, Tensor, Tensor, Tensor | None]:
-    """Encode a batch. The agreement label becomes a sample weight, never a target."""
-    input_ids, attention_mask = tokenizer.batch([sample.query for sample in samples])
+    """Encode a batch. The agreement label becomes a sample weight, never a target.
+
+    Each sample's `context` turns are placed before its query, so a row whose route
+    depends on earlier state is encoded with that state. A batch with no context encodes
+    exactly as before, so single-turn and context rows can share one corpus.
+    """
+    turns = [tuple(sample.context) + (sample.query,) for sample in samples]
+    if any(sample.context for sample in samples):
+        input_ids, attention_mask = tokenizer.batch_turns(turns)
+    else:
+        input_ids, attention_mask = tokenizer.batch([sample.query for sample in samples])
     routes = Tensor([ROUTE_INDEX[sample.route] for sample in samples], dtype=dtypes.int32)
     weights = Tensor([sample.confidence for sample in samples], dtype=dtypes.float32) if weight_by_agreement else None
     return input_ids, attention_mask, routes, weights
@@ -146,6 +159,8 @@ def fit(
         num_layers=config.num_layers,
         num_heads=config.num_heads,
         ffn_dim=config.ffn_dim,
+        **({"vocab_size": TURN_SEPARATOR_ID + 1, "turn_sep_id": TURN_SEPARATOR_ID} if config.use_context else {}),
+        aux_slots=config.aux_weight > 0.0,
     )
     tokenizer = ByteTokenizer(jev_config)
     model = TinyJev(jev_config)
@@ -169,6 +184,16 @@ def fit(
                 input_ids, attention_mask, routes, weights = tensors(tokenizer, batch, weight_by_agreement=config.weight_by_agreement)
                 outputs = model(input_ids, attention_mask)
                 loss = supervised_loss(outputs, routes, sample_weights=weights, label_smoothing=config.label_smoothing)
+                if config.aux_weight > 0.0:
+                    # The route is a function of the deciding slots, so predicting those
+                    # slots is a denser version of the same question. The auxiliary term
+                    # is added, never substituted: the route head is still trained end to
+                    # end, and the decision path still reads only `route_logits`.
+                    columns, mask = slot_targets(batch)
+                    aux_targets = {slot: Tensor(values, dtype=dtypes.int32) for slot, values in columns.items()}
+                    auxiliary = slot_loss(outputs, aux_targets, Tensor(mask, dtype=dtypes.float32))
+                    if auxiliary is not None:
+                        loss = loss + auxiliary * config.aux_weight
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
@@ -261,6 +286,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--measure", default=DEFAULT_MEASURE, help="confidence measure for the decision policy")
     parser.add_argument("--caution", type=float, default=1.0, help="scale every route gate; >1 escalates more often")
+    parser.add_argument(
+        "--aux-weight",
+        type=float,
+        default=0.0,
+        help="weight on the deciding-slot auxiliary loss; 0 leaves the model without aux heads",
+    )
+    parser.add_argument(
+        "--context",
+        action="store_true",
+        help="enable turn separators so each sample's preceding turns are encoded before its request",
+    )
     return parser
 
 
@@ -289,22 +325,16 @@ def main(argv: Sequence[str] | None = None) -> None:
         seed=args.seed,
         weight_by_agreement=not args.no_agreement_weights,
         label_smoothing=args.label_smoothing,
+        use_context=args.context,
+        aux_weight=args.aux_weight,
     )
     policy = RiskLadderPolicy(measure=args.measure).scaled(args.caution)
 
     print(f"train={len(train_samples)} validation={len(validation_samples)} test={len(test_samples)}")
     model, log = fit(train_samples, validation_samples, config, output=args.output, policy=policy)
-    tokenizer = ByteTokenizer(
-        JevConfig(
-            embed_dim=config.embed_dim,
-            hidden_dim=config.hidden_dim,
-            preserve_tail=config.preserve_tail,
-            encoder_type=config.encoder_type,
-            num_layers=config.num_layers,
-            num_heads=config.num_heads,
-            ffn_dim=config.ffn_dim,
-        )
-    )
+    # Rebuild the same config the checkpoint carries, so evaluation tokenises exactly the
+    # way training did. A context model and a plain model read different bytes.
+    tokenizer = ByteTokenizer(model.config)
 
     log["test"] = evaluate_split(model, tokenizer, test_samples, config.batch_size, policy, name="test")
     log["test"]["majority_baseline"] = majority_baseline(test_samples, training_samples=train_samples)

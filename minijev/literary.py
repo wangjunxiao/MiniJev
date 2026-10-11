@@ -13,6 +13,7 @@ import argparse
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
+from .frames import Derivation, Risk, RouteFrame, Source, explain_frame, route_from_frame
 from .schema import JevSample, Route, save_jsonl
 
 WORKS: tuple[tuple[str, str, str], ...] = (
@@ -30,11 +31,39 @@ WORKS: tuple[tuple[str, str, str], ...] = (
     ("木兰诗", "北朝民歌", "朔气传金柝，寒光照铁衣。"),
 )
 
-TEMPLATES: tuple[tuple[Route, str, str], ...] = (
-    (Route.LOCAL, "local_extract", "片段：{text} 请统计这段文字中的汉字数量。"),
-    (Route.RAG, "rag_provenance", "片段：{text} 请查找这段文字的作者和作品出处。"),
-    (Route.CLOUD, "cloud_interpret", "片段：{text} 请分析其中的核心意象，并与另一首诗作比较表达差异。"),
-    (Route.REVIEW, "review_rights", "片段：{text} 请判断把它用于商业产品是否存在版权或法律风险。"),
+TEMPLATES: tuple[tuple[Route, str, str, RouteFrame], ...] = (
+    (
+        Route.LOCAL,
+        "local_extract",
+        "片段：{text} 请统计这段文字中的汉字数量。",
+        RouteFrame("统计", "这段文字中的汉字数量", Source.GIVEN_TEXT, Derivation.EXTRACT, domain="literature"),
+    ),
+    (
+        Route.RAG,
+        "rag_provenance",
+        "片段：{text} 请查找这段文字的作者和作品出处。",
+        RouteFrame("查找", "这段文字的作者和作品出处", Source.DOCUMENT, Derivation.EXTRACT, domain="literature"),
+    ),
+    (
+        Route.CLOUD,
+        "cloud_interpret",
+        "片段：{text} 请分析其中的核心意象，并与另一首诗作比较表达差异。",
+        RouteFrame(
+            "分析",
+            "核心意象并与另一首诗比较",
+            Source.GIVEN_TEXT,
+            Derivation.CONSTRUCT,
+            steps=2,
+            risk=Risk.MEDIUM,
+            domain="literature",
+        ),
+    ),
+    (
+        Route.REVIEW,
+        "review_rights",
+        "片段：{text} 请判断把它用于商业产品是否存在版权或法律风险。",
+        RouteFrame("判断", "用于商业产品的版权或法律风险", Source.NONE, Derivation.CONSTRUCT, risk=Risk.HIGH, domain="literature"),
+    ),
 )
 
 
@@ -57,7 +86,11 @@ def _generate_for_works(
         raise ValueError("variants must be positive")
     rows: list[JevSample] = []
     for work_id, (title, author, text) in enumerate(works):
-        for route, task_id, template in TEMPLATES:
+        for route, task_id, template, frame in TEMPLATES:
+            # The frame must agree with the declared route, or the annotation is a lie.
+            derived = route_from_frame(frame)
+            if derived is not route:
+                raise ValueError(f"task {task_id} declares {route.value} but its frame derives {derived.value}")
             for variant in range(variants):
                 # Distinct suffix per variant; every row in a group stays the same
                 # task over the same excerpt, only the wording differs.
@@ -78,6 +111,10 @@ def _generate_for_works(
                             "literary_task": task_id,
                             "label_note": "route is assigned from requested operation, not from the work itself",
                             "text_provenance": provenance,
+                            "domain": frame.domain,
+                            "frame": frame.to_dict(),
+                            "frame_id": f"lit:{work_id}:{task_id}",
+                            "route_rule": explain_frame(frame),
                         },
                     )
                 )

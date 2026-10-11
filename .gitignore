@@ -12,22 +12,19 @@ venv/
 models/*.safetensors
 models/history/
 
-# Derived datasets. Every file under data/ except the committed fixtures and the
-# held-out benchmark is produced by a `python -m minijev.*` command that is recorded
-# in README.md, so the bytes do not need versioning.
-data/synthetic.jsonl
-data/train.jsonl
-data/val.jsonl
-data/test.jsonl
-data/merged_train.jsonl
-data/merged_val.jsonl
-data/merged_all_train.jsonl
-data/merged_all_val.jsonl
-data/hard_training.jsonl
+# Derived datasets. Everything under data/ is produced by a `python -m minijev.*`
+# command recorded in README.md, except the two things that are source rather than
+# product: the hand-written boundary benchmark, and the authored domain passages.
+# Ignoring the whole class (with those two negated) is safer than listing each name,
+# because a new generator would otherwise start committing megabytes by default.
+data/*.jsonl
+!data/hard_benchmark.jsonl
+data/domains/
 data/external/literary/*.jsonl
 data/external/literary/splits/
 data/external/massive/derived_v2/
 data/external/domains/*.jsonl
+!data/external/domains/passages.json
 
 # Raw third-party corpora are never committed (licence + size).
 data/external/routerbench/*.parquet

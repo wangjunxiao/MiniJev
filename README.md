@@ -42,7 +42,33 @@ and there are no `training/` and `inference/` directory trees:
 | evaluation | `python -m minijev.evaluation` |
 
 Supporting CLIs: `python -m minijev.data` (split, stats), `python -m minijev.synthetic`
-(generate), `python -m minijev.convert` (external datasets).
+(generate), `python -m minijev.frame_product` (slot cross-product), and
+`python -m minijev.convert` (external datasets).
+
+## Slot cross-product boundary corpus
+
+The hand-written frame bank remains the explanatory reference set. For a tighter
+estimate of boundary separation, `minijev.frame_product` expands the same deciding
+slots (`source`, `derivation`, `steps`, `risk`, and `underspecified`) over a
+controlled Chinese predicate/object vocabulary. The route is always recomputed by
+`frames.route_from_frame`; it is never copied into a generated frame.
+
+The checked-in generation command produces 1,280 balanced frames (320 per route),
+with 960 training frames and 320 held-out benchmark frames. All variants of a
+frame stay in one split, and the manifest records route and slot counts:
+
+```powershell
+python -m minijev.frame_product --output-dir data --target-per-route 320 `
+  --benchmark-fraction 0.25 --variants 3 --seed 17
+```
+
+This writes `data/frame_product_train.jsonl`,
+`data/frame_product_benchmark.jsonl`, and
+`data/frame_product_manifest.json`. The product benchmark is a new measurement
+instrument; `data/hard_benchmark.jsonl` remains the original hand-written set and
+is not replaced by generated rows. The boundary evaluator detects the generated
+metadata and derives a disjoint set of minimal contrast pairs automatically; the
+default manifest contains 137 such pairs.
 
 ## Phase 1 boundary
 
@@ -203,6 +229,78 @@ Two invariants are enforced by tests, because both were real failures:
   the one proposal that actually uses the new annotation, and it is untested here.
 - The benchmark is synthetic, and its author is also the system being measured. Until it
   is replaced by human annotation, only internal comparisons are meaningful.
+
+## Broad domains: news, philosophy, literature, academic
+
+The idea being tested is that a handful of broad domains covers most of the grammar and
+most of the situations a router meets, so a decision learned on news and philosophy holds
+up on an academic abstract.
+
+**Merging is only safe when every corpus covers every route.** That is measured, not
+assumed: MASSIVE's derived rubric contains **zero cloud rows**, and merging it drove cloud
+recall from 0.58 to 0.12 for the pooled model and to 0.00 for the transformer. An absent
+class is learned as a class that does not exist. So `minijev.domains` pairs every passage
+with the same four requests — bounded extraction (local), provenance lookup (rag),
+multi-step interpretation (cloud), rights or ethics judgement (review) — and each passage
+therefore contributes exactly one row per route.
+
+```
+domain audit: news 25/25/25/25, philosophy 25/25/25/25, literature 25/25/25/25, academic 25/25/25/25
+```
+
+The four domains do not share text: news, philosophy and academic read authored synthetic
+passages from `data/external/domains/passages.json` (no real people, institutions or
+journals), and literature reuses the public-domain classical excerpts. `domain_audit()`
+recomputes the proportions and a test fails if any domain tilts.
+
+## Context: the same request, a different state
+
+Every other benchmark here scores a single sentence. That is the limitation worth naming:
+a router decides *inside a conversation*, and much of what determines the route is
+established earlier.
+
+A **context pair** is two cases with an **identical query** whose preceding turns differ,
+and whose routes therefore differ:
+
+```
+query:  这两种能不能一起用
+ctx A:  我在整理两种清洁剂的成分表。          -> local   (given text, bounded)
+ctx B:  我母亲在吃降压药，医生又开了安眠药。   -> review  (high stakes)
+```
+
+A model that ignores context **must** answer both halves identically, so it collapses every
+pair — 100% collapse is the signature of an encoder that cannot see state. The probe holds
+the query text fixed and varies only the state, so a collapse cannot be blamed on wording.
+It covers all six route combinations, two pairs each, and is route-balanced.
+
+Turns are joined with an explicit separator id (`turn_sep_id`, `vocab_size` 258), not a
+newline, so a boundary cannot be confused with content. The separator lives in the config
+and travels in the checkpoint sidecar: a single-turn checkpoint keeps 257 rows and still
+loads, and `--context` is what opts into the extra row.
+
+## Auxiliary supervision: predict the deciding slots
+
+The route is a deterministic function of five slot values, so supervising those slots
+directly is a denser version of the same question: instead of asking the encoder to infer
+"rag" from surface text, it is asked where the answer must come from, whether it already
+exists, how many steps it needs and how costly a mistake is.
+
+```powershell
+python -m minijev.training --train data\broad_train.jsonl --aux-weight 0.5 ...
+```
+
+Three properties are enforced by tests, because each is a way the idea fails silently:
+
+- **the labels are the real ones** — `slot_index` is asserted against `slot_value` for
+  every framed row, and every label must be reachable, so no head is trained on noise;
+- **the decision path never reads the heads** — `JevOutputs.slot_logits` is separate from
+  `route_logits` and `None` on a plain model, so an aux checkpoint and a plain one answer
+  identically;
+- **it is not a capacity trick** — the heads add 780 parameters to 20,868 (<4%), asserted,
+  because the encoder comparison already taught that a bigger model is not a better idea.
+
+Rows without a frame are masked out rather than given a fake label, so template data and
+framed data share one corpus.
 
 ## Confidence is derived, not learned
 

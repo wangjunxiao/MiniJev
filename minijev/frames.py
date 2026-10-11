@@ -846,6 +846,74 @@ def load_frame(sample: JevSample) -> RouteFrame | None:
     return RouteFrame.from_dict(payload) if isinstance(payload, Mapping) else None
 
 
+# ---------------------------------------------------------------------------
+# Auxiliary supervision vocabulary
+# ---------------------------------------------------------------------------
+
+AUX_SLOTS: tuple[str, ...] = ("source_class", "derivation", "steps", "risk", "underspecified")
+"""The deciding slots, as prediction targets.
+
+The route is a deterministic function of these five values. Supervising them directly is
+a different bet from supervising the route: instead of asking the encoder to infer "rag"
+from surface text, it is asked to say where the answer must come from, whether it already
+exists, how many steps it needs and how costly a mistake is. Those questions have dense,
+low-cardinality labels.
+
+`predicate` and `object` are deliberately excluded: they are surface realisations, not
+decisions, and a head that predicts them would mostly be doing language modelling.
+"""
+
+
+def slot_vocabulary() -> dict[str, tuple[str, ...]]:
+    """The value names each auxiliary head can emit, in index order."""
+    return {
+        "source_class": ("internal", "external"),
+        "derivation": ("extract", "construct"),
+        "steps": ("1", "2", "3+"),
+        "risk": ("low", "medium", "high"),
+        "underspecified": ("false", "true"),
+    }
+
+
+def slot_value(frame: RouteFrame, slot: str) -> str:
+    """The label of one deciding slot, as a string."""
+    if slot == "source_class":
+        return "external" if frame.source in EXTERNAL_SOURCES else "internal"
+    if slot == "steps":
+        return "1" if frame.steps <= 1 else ("2" if frame.steps == 2 else "3+")
+    if slot == "underspecified":
+        return "true" if frame.underspecified else "false"
+    value = getattr(frame, slot)
+    return str(getattr(value, "value", value))
+
+
+def slot_index(frame: RouteFrame, slot: str) -> int:
+    """The label of one deciding slot as an index into `slot_vocabulary()`."""
+    return slot_vocabulary()[slot].index(slot_value(frame, slot))
+
+
+def slot_targets(samples: Sequence[JevSample]) -> tuple[dict[str, list[int]], list[float]]:
+    """Per-slot label indices plus a mask of which rows carry a frame.
+
+    Template-generated rows have no frame and so contribute no auxiliary signal. The mask
+    lets framed and frame-free rows share one corpus instead of forcing a caller to keep
+    two datasets.
+    """
+    columns: dict[str, list[int]] = {slot: [] for slot in AUX_SLOTS}
+    mask: list[float] = []
+    for sample in samples:
+        frame = load_frame(sample)
+        if frame is None:
+            for slot in AUX_SLOTS:
+                columns[slot].append(0)
+            mask.append(0.0)
+            continue
+        for slot in AUX_SLOTS:
+            columns[slot].append(slot_index(frame, slot))
+        mask.append(1.0)
+    return columns, mask
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="minijev.frames", description="Structured boundary frames")
     parser.add_argument("command", choices=("audit", "benchmark", "training"))

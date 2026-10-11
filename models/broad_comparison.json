@@ -1,0 +1,347 @@
+{
+  "plain": {
+    "synthetic": {
+      "accuracy": 0.5778894472361809,
+      "macro_f1": 0.4897011566822887
+    },
+    "domain:news": {
+      "accuracy": 0.7777777777777778,
+      "macro_f1": 0.7749668288367979
+    },
+    "domain:philosophy": {
+      "accuracy": 0.8333333333333334,
+      "macro_f1": 0.83125
+    },
+    "domain:literature": {
+      "accuracy": 0.9166666666666666,
+      "macro_f1": 0.9158862229102167
+    },
+    "domain:academic": {
+      "accuracy": 0.6666666666666666,
+      "macro_f1": 0.6564705882352941
+    },
+    "slot-product (320 frames)": {
+      "accuracy": 0.9572916666666667,
+      "macro_f1": 0.9569883310322065
+    },
+    "hard benchmark": {
+      "accuracy": 0.463768115942029,
+      "macro_f1": 0.45633040935672514
+    },
+    "context_probe": {
+      "pairs": 6,
+      "collapsed": 0.16666666666666666,
+      "both_correct": 0.16666666666666666,
+      "detail": [
+        {
+          "pair": "ctx_derive_error",
+          "predicted": [
+            "rag",
+            "cloud"
+          ],
+          "expected": [
+            "rag",
+            "cloud"
+          ],
+          "collapsed": false
+        },
+        {
+          "pair": "ctx_risk_cleaner",
+          "predicted": [
+            "rag",
+            "review"
+          ],
+          "expected": [
+            "local",
+            "review"
+          ],
+          "collapsed": false
+        },
+        {
+          "pair": "ctx_risk_feasibility",
+          "predicted": [
+            "cloud",
+            "cloud"
+          ],
+          "expected": [
+            "cloud",
+            "review"
+          ],
+          "collapsed": true
+        },
+        {
+          "pair": "ctx_risk_link",
+          "predicted": [
+            "rag",
+            "cloud"
+          ],
+          "expected": [
+            "rag",
+            "review"
+          ],
+          "collapsed": false
+        },
+        {
+          "pair": "ctx_source_manual",
+          "predicted": [
+            "rag",
+            "local"
+          ],
+          "expected": [
+            "local",
+            "rag"
+          ],
+          "collapsed": false
+        },
+        {
+          "pair": "ctx_steps_interview",
+          "predicted": [
+            "rag",
+            "local"
+          ],
+          "expected": [
+            "local",
+            "cloud"
+          ],
+          "collapsed": false
+        }
+      ]
+    },
+    "hard_benchmark": {
+      "accuracy": 0.463768115942029,
+      "macro_f1": 0.45633040935672514,
+      "collapsed": 0.21052631578947367,
+      "both_correct": 0.21052631578947367
+    }
+  },
+  "aux": {
+    "synthetic": {
+      "accuracy": 0.592964824120603,
+      "macro_f1": 0.5289935809826991
+    },
+    "domain:news": {
+      "accuracy": 0.7777777777777778,
+      "macro_f1": 0.7749668288367979
+    },
+    "domain:philosophy": {
+      "accuracy": 0.8055555555555556,
+      "macro_f1": 0.7963659147869674
+    },
+    "domain:literature": {
+      "accuracy": 0.9722222222222222,
+      "macro_f1": 0.9721362229102167
+    },
+    "domain:academic": {
+      "accuracy": 0.6666666666666666,
+      "macro_f1": 0.6613970588235294
+    },
+    "slot-product (320 frames)": {
+      "accuracy": 0.9739583333333334,
+      "macro_f1": 0.9739459830079524
+    },
+    "hard benchmark": {
+      "accuracy": 0.4782608695652174,
+      "macro_f1": 0.4787083797313251
+    },
+    "context_probe": {
+      "pairs": 6,
+      "collapsed": 0.5,
+      "both_correct": 0.0,
+      "detail": [
+        {
+          "pair": "ctx_derive_error",
+          "predicted": [
+            "cloud",
+            "cloud"
+          ],
+          "expected": [
+            "rag",
+            "cloud"
+          ],
+          "collapsed": true
+        },
+        {
+          "pair": "ctx_risk_cleaner",
+          "predicted": [
+            "review",
+            "review"
+          ],
+          "expected": [
+            "local",
+            "review"
+          ],
+          "collapsed": true
+        },
+        {
+          "pair": "ctx_risk_feasibility",
+          "predicted": [
+            "cloud",
+            "cloud"
+          ],
+          "expected": [
+            "cloud",
+            "review"
+          ],
+          "collapsed": true
+        },
+        {
+          "pair": "ctx_risk_link",
+          "predicted": [
+            "rag",
+            "cloud"
+          ],
+          "expected": [
+            "rag",
+            "review"
+          ],
+          "collapsed": false
+        },
+        {
+          "pair": "ctx_source_manual",
+          "predicted": [
+            "rag",
+            "local"
+          ],
+          "expected": [
+            "local",
+            "rag"
+          ],
+          "collapsed": false
+        },
+        {
+          "pair": "ctx_steps_interview",
+          "predicted": [
+            "local",
+            "review"
+          ],
+          "expected": [
+            "local",
+            "cloud"
+          ],
+          "collapsed": false
+        }
+      ]
+    },
+    "hard_benchmark": {
+      "accuracy": 0.4782608695652174,
+      "macro_f1": 0.4787083797313251,
+      "collapsed": 0.15789473684210525,
+      "both_correct": 0.3157894736842105
+    }
+  },
+  "aux+context": {
+    "synthetic": {
+      "accuracy": 0.5879396984924623,
+      "macro_f1": 0.5107301614727319
+    },
+    "domain:news": {
+      "accuracy": 0.75,
+      "macro_f1": 0.7421799516908213
+    },
+    "domain:philosophy": {
+      "accuracy": 0.8333333333333334,
+      "macro_f1": 0.8256944444444445
+    },
+    "domain:literature": {
+      "accuracy": 0.9444444444444444,
+      "macro_f1": 0.9437500000000001
+    },
+    "domain:academic": {
+      "accuracy": 0.5833333333333334,
+      "macro_f1": 0.5558500323206206
+    },
+    "slot-product (320 frames)": {
+      "accuracy": 0.9708333333333333,
+      "macro_f1": 0.9708384035926807
+    },
+    "hard benchmark": {
+      "accuracy": 0.4782608695652174,
+      "macro_f1": 0.47433035714285715
+    },
+    "context_probe": {
+      "pairs": 6,
+      "collapsed": 0.5,
+      "both_correct": 0.0,
+      "detail": [
+        {
+          "pair": "ctx_derive_error",
+          "predicted": [
+            "cloud",
+            "cloud"
+          ],
+          "expected": [
+            "rag",
+            "cloud"
+          ],
+          "collapsed": true
+        },
+        {
+          "pair": "ctx_risk_cleaner",
+          "predicted": [
+            "rag",
+            "review"
+          ],
+          "expected": [
+            "local",
+            "review"
+          ],
+          "collapsed": false
+        },
+        {
+          "pair": "ctx_risk_feasibility",
+          "predicted": [
+            "cloud",
+            "cloud"
+          ],
+          "expected": [
+            "cloud",
+            "review"
+          ],
+          "collapsed": true
+        },
+        {
+          "pair": "ctx_risk_link",
+          "predicted": [
+            "cloud",
+            "cloud"
+          ],
+          "expected": [
+            "rag",
+            "review"
+          ],
+          "collapsed": true
+        },
+        {
+          "pair": "ctx_source_manual",
+          "predicted": [
+            "rag",
+            "local"
+          ],
+          "expected": [
+            "local",
+            "rag"
+          ],
+          "collapsed": false
+        },
+        {
+          "pair": "ctx_steps_interview",
+          "predicted": [
+            "local",
+            "review"
+          ],
+          "expected": [
+            "local",
+            "cloud"
+          ],
+          "collapsed": false
+        }
+      ]
+    },
+    "hard_benchmark": {
+      "accuracy": 0.4782608695652174,
+      "macro_f1": 0.47433035714285715,
+      "collapsed": 0.21052631578947367,
+      "both_correct": 0.3157894736842105
+    }
+  }
+}

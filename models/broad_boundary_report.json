@@ -1,0 +1,74 @@
+{
+  "plain": {
+    "hard benchmark (46 frames)": {
+      "rows": 138,
+      "groups": 46,
+      "accuracy": 0.463768115942029,
+      "macro_f1": 0.45633040935672514,
+      "both_correct": 0.21052631578947367,
+      "collapsed": 0.21052631578947367,
+      "minimal_pairs": 8,
+      "minimal_collapsed": 0.375,
+      "minimal_both_correct": 0.125
+    },
+    "slot product (320 frames)": {
+      "rows": 960,
+      "groups": 320,
+      "accuracy": 0.9572916666666667,
+      "macro_f1": 0.9569883310322065,
+      "both_correct": 0.9197080291970803,
+      "collapsed": 0.058394160583941604,
+      "minimal_pairs": 137,
+      "minimal_collapsed": 0.058394160583941604,
+      "minimal_both_correct": 0.9197080291970803
+    }
+  },
+  "aux": {
+    "hard benchmark (46 frames)": {
+      "rows": 138,
+      "groups": 46,
+      "accuracy": 0.4782608695652174,
+      "macro_f1": 0.4787083797313251,
+      "both_correct": 0.3157894736842105,
+      "collapsed": 0.15789473684210525,
+      "minimal_pairs": 8,
+      "minimal_collapsed": 0.25,
+      "minimal_both_correct": 0.125
+    },
+    "slot product (320 frames)": {
+      "rows": 960,
+      "groups": 320,
+      "accuracy": 0.9739583333333334,
+      "macro_f1": 0.9739459830079524,
+      "both_correct": 0.9635036496350365,
+      "collapsed": 0.0364963503649635,
+      "minimal_pairs": 137,
+      "minimal_collapsed": 0.0364963503649635,
+      "minimal_both_correct": 0.9635036496350365
+    }
+  },
+  "aux+context": {
+    "hard benchmark (46 frames)": {
+      "rows": 138,
+      "groups": 46,
+      "accuracy": 0.4782608695652174,
+      "macro_f1": 0.47433035714285715,
+      "both_correct": 0.3157894736842105,
+      "collapsed": 0.21052631578947367,
+      "minimal_pairs": 8,
+      "minimal_collapsed": 0.25,
+      "minimal_both_correct": 0.125
+    },
+    "slot product (320 frames)": {
+      "rows": 960,
+      "groups": 320,
+      "accuracy": 0.9708333333333333,
+      "macro_f1": 0.9708384035926807,
+      "both_correct": 0.9635036496350365,
+      "collapsed": 0.029197080291970802,
+      "minimal_pairs": 137,
+      "minimal_collapsed": 0.029197080291970802,
+      "minimal_both_correct": 0.9635036496350365
+    }
+  }
+}
