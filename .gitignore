@@ -21,6 +21,9 @@ data/*.jsonl
 !data/hard_benchmark.jsonl
 data/domains/
 data/implied/
+# Split directories are derived too, and `data/*.jsonl` does not reach inside them.
+data/*_splits/
+data/splits/
 data/external/literary/*.jsonl
 data/external/literary/splits/
 data/external/massive/derived_v2/
