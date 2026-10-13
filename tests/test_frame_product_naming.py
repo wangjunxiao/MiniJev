@@ -129,6 +129,41 @@ def test_an_unknown_naming_mode_is_refused():
         generate_frame_product(ProductOptions(naming="nonsense"))
 
 
+def test_every_verb_object_pair_is_one_a_speaker_would_use():
+    """A free predicate x object product emitted '预测安装步骤'. Verbs select objects.
+
+    This is the same defect class as the explicit markers, one level up: a corpus of
+    sentences nobody would say cannot be learned from, and its labels are not the labels a
+    real router would see.
+    """
+    from minijev.frame_product import _OBJECT_CONTEXT, _PREDICATE_GROUPS
+
+    allowed = {
+        (predicate, object_) for object_, (_, _, _, groups) in _OBJECT_CONTEXT.items() for group in groups for predicate in _PREDICATE_GROUPS[group]
+    }
+    product = generate_frame_product(ProductOptions(naming="implied"))
+    # Underspecified frames deliberately carry no operation -- their placeholder verb is not
+    # a verb-object pair at all -- so only specified requests are checked.
+    produced = {(case.frame.predicate, case.frame.object) for case in product.cases if not case.frame.underspecified}
+    assert produced <= allowed, sorted(produced - allowed)[:5]
+    assert ("预测", "安装步骤") not in produced
+    assert ("统计", "安装步骤") not in produced
+    assert ("查", "安装步骤") in produced
+
+
+def test_the_implied_benchmark_is_sized_for_the_effect_it_must_detect():
+    """Power, not vibes: state what this instrument can resolve.
+
+    At 95% confidence and 80% power a two-proportion test needs about 59 pairs to resolve a
+    20-point collapse difference at a 30% baseline, and about 197 for a 10-point one at 20%.
+    """
+    from minijev.frame_product import product_contrast_pairs
+
+    product = generate_frame_product(ProductOptions(naming="implied"))
+    pairs = product_contrast_pairs(product, split="benchmark")
+    assert len(pairs) >= 50, f"only {len(pairs)} contrast pairs; a 20-point effect needs ~59"
+
+
 def test_written_files_carry_the_generated_rows_on_disk(tmp_path):
     """The on-disk benchmark must match the generator, or a report describes a ghost."""
     options = ProductOptions(naming="implied")

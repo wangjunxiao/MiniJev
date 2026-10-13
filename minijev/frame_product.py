@@ -170,56 +170,94 @@ _PREDICATE_DERIVATION: dict[str, Derivation] = {
     "预测": Derivation.CONSTRUCT,
 }
 
-_OBJECT_CONTEXT: dict[str, tuple[Source, Risk, str]] = {
-    # Where a thing naturally lives and how costly it is to get it wrong. The source and
-    # the risk are *implied by the object*, so the text never has to state them.
+_PREDICATE_GROUPS: dict[str, tuple[str, ...]] = {
+    # Verbs are not interchangeable: 统计安装步骤 is not a sentence anyone writes, and a
+    # free predicate x object product produced exactly that. Each group is also a
+    # *derivation* class -- reading, counting, listing, verifying, converting and
+    # translating all return something that already exists, while analysing, judging and
+    # composing have to build it.
+    "read": ("查", "检索", "定位", "找出"),
+    "list": ("列出", "摘出", "标出"),
+    "count": ("统计", "计算"),
+    "extract": ("提取", "读取", "截取"),
+    "verify": ("核对", "比对"),
+    "convert": ("换算", "转成"),
+    "translate": ("翻译", "复制"),
+    "analyse": ("分析", "解释"),
+    "judge": ("评估", "比较"),
+    "compose": ("总结", "汇总", "规划", "设计", "预测"),
+}
+
+_EXTRACTIVE_GROUPS: frozenset[str] = frozenset({"read", "list", "count", "extract", "verify", "convert", "translate"})
+
+
+def _group_derivation(group: str) -> Derivation:
+    return Derivation.EXTRACT if group in _EXTRACTIVE_GROUPS else Derivation.CONSTRUCT
+
+
+_OBJECT_CONTEXT: dict[str, tuple[Source, Risk, str, tuple[str, ...]]] = {
+    # `(source, risk, domain, allowed predicate groups)`. Source and risk are implied by
+    # what the object IS; the allowed groups are the verbs a speaker would actually use
+    # with it. Both are needed: the object fixes where the answer lives, the verb fixes
+    # whether the answer is fetched or built.
     #
     # The table has to spread across all four routes, because the implied product can only
-    # take route-balanced quotas from what the table offers: a source class with too few
-    # objects caps the whole corpus.
-    # document -> rag
-    "安装步骤": (Source.DOCUMENT, Risk.LOW, "product_manual"),
-    "产品规格": (Source.DOCUMENT, Risk.LOW, "product_manual"),
-    "错误码含义": (Source.DOCUMENT, Risk.LOW, "tech_documentation"),
-    "培训材料": (Source.DOCUMENT, Risk.LOW, "enterprise_knowledge"),
-    "保修条款": (Source.DOCUMENT, Risk.LOW, "product_manual"),
-    "入职指引": (Source.DOCUMENT, Risk.LOW, "enterprise_knowledge"),
-    # user records -> rag
-    "报销明细": (Source.USER_DATA, Risk.LOW, "enterprise_knowledge"),
-    "季度数据": (Source.USER_DATA, Risk.LOW, "planning"),
-    "项目进度": (Source.USER_DATA, Risk.LOW, "enterprise_knowledge"),
-    "库存数量": (Source.USER_DATA, Risk.LOW, "enterprise_knowledge"),
-    "排班表": (Source.USER_DATA, Risk.LOW, "enterprise_knowledge"),
-    "预算变化": (Source.USER_DATA, Risk.MEDIUM, "planning"),
-    "客户名单": (Source.USER_DATA, Risk.MEDIUM, "enterprise_knowledge"),
-    "合同条款": (Source.USER_DATA, Risk.MEDIUM, "legal"),
-    # live services -> rag
-    "服务用量": (Source.SERVICE, Risk.LOW, "realtime_info"),
-    "天气信息": (Source.SERVICE, Risk.LOW, "realtime_info"),
-    "汇率报价": (Source.SERVICE, Risk.LOW, "realtime_info"),
-    "物流轨迹": (Source.SERVICE, Risk.LOW, "realtime_info"),
-    "航班状态": (Source.SERVICE, Risk.MEDIUM, "realtime_info"),
-    # text already in hand, low stakes -> local
-    "会议记录": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion"),
-    "部署日志": (Source.GIVEN_TEXT, Risk.LOW, "code_analysis"),
-    "接口响应": (Source.GIVEN_TEXT, Risk.LOW, "code_analysis"),
-    "客户来信": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion"),
-    "问卷作答": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion"),
-    "访谈文字稿": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion"),
-    "变更说明": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion"),
-    "巡检笔记": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion"),
-    "测试报告": (Source.GIVEN_TEXT, Risk.LOW, "code_analysis"),
-    "故障原因": (Source.GIVEN_TEXT, Risk.MEDIUM, "code_analysis"),
-    "实验结果": (Source.GIVEN_TEXT, Risk.MEDIUM, "academic"),
-    "现场照片说明": (Source.GIVEN_TEXT, Risk.MEDIUM, "format_conversion"),
-    # intrinsically high stakes -> review whatever is asked
-    "权限记录": (Source.USER_DATA, Risk.HIGH, "security"),
-    "用药剂量": (Source.NONE, Risk.HIGH, "medical"),
-    "体检指标": (Source.NONE, Risk.HIGH, "medical"),
-    "投资方案": (Source.NONE, Risk.HIGH, "financial"),
-    "抵押方案": (Source.NONE, Risk.HIGH, "financial"),
-    "隐私条款": (Source.NONE, Risk.HIGH, "legal"),
-    "竞业协议": (Source.NONE, Risk.HIGH, "legal"),
+    # take route-balanced quotas from what the table offers: whichever route has fewest
+    # legal combinations caps the whole corpus.
+    # --- document -> rag ---
+    "安装步骤": (Source.DOCUMENT, Risk.LOW, "product_manual", ("read", "list", "translate", "analyse")),
+    "产品规格": (Source.DOCUMENT, Risk.LOW, "product_manual", ("read", "list", "extract", "convert", "analyse")),
+    "错误码含义": (Source.DOCUMENT, Risk.LOW, "tech_documentation", ("read", "list", "translate", "analyse")),
+    "培训材料": (Source.DOCUMENT, Risk.LOW, "enterprise_knowledge", ("read", "list", "translate", "compose")),
+    "保修条款": (Source.DOCUMENT, Risk.LOW, "product_manual", ("read", "list", "translate", "judge")),
+    "入职指引": (Source.DOCUMENT, Risk.LOW, "enterprise_knowledge", ("read", "list", "extract", "compose")),
+    "接口文档": (Source.DOCUMENT, Risk.LOW, "tech_documentation", ("read", "list", "extract", "analyse")),
+    "运维手册": (Source.DOCUMENT, Risk.LOW, "product_manual", ("read", "list", "verify", "analyse")),
+    # --- user records -> rag ---
+    "报销明细": (Source.USER_DATA, Risk.LOW, "enterprise_knowledge", ("read", "list", "count", "verify")),
+    "季度数据": (Source.USER_DATA, Risk.LOW, "planning", ("read", "count", "verify", "analyse", "compose")),
+    "项目进度": (Source.USER_DATA, Risk.LOW, "enterprise_knowledge", ("read", "list", "analyse", "compose")),
+    "库存数量": (Source.USER_DATA, Risk.LOW, "enterprise_knowledge", ("read", "count", "verify", "convert")),
+    "排班表": (Source.USER_DATA, Risk.LOW, "enterprise_knowledge", ("read", "list", "verify", "compose")),
+    "考勤记录": (Source.USER_DATA, Risk.LOW, "enterprise_knowledge", ("read", "count", "verify", "analyse")),
+    "订单明细": (Source.USER_DATA, Risk.LOW, "enterprise_knowledge", ("read", "list", "count", "verify")),
+    "预算变化": (Source.USER_DATA, Risk.MEDIUM, "planning", ("read", "count", "verify", "analyse", "compose")),
+    "客户名单": (Source.USER_DATA, Risk.MEDIUM, "enterprise_knowledge", ("read", "list", "extract", "judge")),
+    "合同条款": (Source.USER_DATA, Risk.MEDIUM, "legal", ("read", "list", "extract", "judge")),
+    # --- live services -> rag ---
+    "服务用量": (Source.SERVICE, Risk.LOW, "realtime_info", ("read", "count", "verify", "analyse")),
+    "天气信息": (Source.SERVICE, Risk.LOW, "realtime_info", ("read", "list", "analyse", "compose")),
+    "汇率报价": (Source.SERVICE, Risk.LOW, "realtime_info", ("read", "convert", "verify", "analyse")),
+    "物流轨迹": (Source.SERVICE, Risk.LOW, "realtime_info", ("read", "list", "analyse")),
+    "余票情况": (Source.SERVICE, Risk.LOW, "realtime_info", ("read", "count", "verify")),
+    "航班状态": (Source.SERVICE, Risk.MEDIUM, "realtime_info", ("read", "list", "analyse", "compose")),
+    # --- text already in hand, low stakes -> local ---
+    "会议记录": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion", ("read", "list", "extract", "translate", "compose")),
+    "部署日志": (Source.GIVEN_TEXT, Risk.LOW, "code_analysis", ("read", "list", "count", "extract", "analyse")),
+    "接口响应": (Source.GIVEN_TEXT, Risk.LOW, "code_analysis", ("read", "list", "extract", "analyse")),
+    "客户来信": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion", ("read", "list", "translate", "analyse")),
+    "问卷作答": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion", ("read", "count", "list", "analyse")),
+    "访谈文字稿": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion", ("read", "list", "extract", "compose")),
+    "变更说明": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion", ("read", "list", "translate", "compose")),
+    "巡检笔记": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion", ("read", "list", "extract", "verify")),
+    "测试报告": (Source.GIVEN_TEXT, Risk.LOW, "code_analysis", ("read", "count", "verify", "analyse")),
+    "需求描述": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion", ("read", "list", "extract", "compose")),
+    "报错信息": (Source.GIVEN_TEXT, Risk.LOW, "code_analysis", ("read", "list", "translate", "analyse")),
+    "配置片段": (Source.GIVEN_TEXT, Risk.LOW, "code_analysis", ("read", "list", "verify", "analyse")),
+    "日程安排": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion", ("read", "list", "verify", "compose")),
+    "访谈提纲": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion", ("read", "list", "extract", "compose")),
+    "故障原因": (Source.GIVEN_TEXT, Risk.MEDIUM, "code_analysis", ("read", "list", "analyse", "compose")),
+    "实验结果": (Source.GIVEN_TEXT, Risk.MEDIUM, "academic", ("read", "count", "verify", "analyse")),
+    "现场照片说明": (Source.GIVEN_TEXT, Risk.MEDIUM, "format_conversion", ("read", "list", "extract", "analyse")),
+    # --- intrinsically high stakes -> review whatever is asked ---
+    "权限记录": (Source.USER_DATA, Risk.HIGH, "security", ("read", "list", "verify", "judge")),
+    "用药剂量": (Source.NONE, Risk.HIGH, "medical", ("read", "analyse", "judge")),
+    "体检指标": (Source.NONE, Risk.HIGH, "medical", ("read", "analyse", "judge")),
+    "投资方案": (Source.NONE, Risk.HIGH, "financial", ("analyse", "judge", "compose")),
+    "抵押方案": (Source.NONE, Risk.HIGH, "financial", ("analyse", "judge", "compose")),
+    "隐私条款": (Source.NONE, Risk.HIGH, "legal", ("read", "analyse", "judge")),
+    "竞业协议": (Source.NONE, Risk.HIGH, "legal", ("read", "analyse", "judge")),
+    "保险条款": (Source.NONE, Risk.HIGH, "financial", ("read", "analyse", "judge")),
 }
 """Objects whose meaning fixes the source and the stakes.
 
@@ -381,9 +419,10 @@ def _implied_candidate_cases() -> Iterable[ProductFrameCase]:
     underspecified) inside each object's natural context.
     """
     serial = 0
-    for object_, (source, risk, domain) in _OBJECT_CONTEXT.items():
-        for predicate in _PREDICATES:
-            derivation = _PREDICATE_DERIVATION[predicate]
+    for object_, (source, risk, domain, groups) in _OBJECT_CONTEXT.items():
+        allowed = [(group, predicate) for group in groups for predicate in _PREDICATE_GROUPS[group]]
+        for group, predicate in allowed:
+            derivation = _group_derivation(group)
             for steps in _STEPS:
                 if derivation is Derivation.EXTRACT and steps > 1:
                     # A second clause on an extractive verb reads as a second request,
