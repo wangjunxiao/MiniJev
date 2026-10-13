@@ -53,6 +53,17 @@ class ProductOptions:
     saturates near 0.97. `implied` has no marker to read.
     """
 
+    object_holdout: float = 0.25
+    """Fraction of *objects* reserved for the benchmark.
+
+    Holding out frames is not enough. The object fixes `source` and `risk`, which are 3 of
+    the 5 deciding slots, so a benchmark frame whose object was seen in training can be
+    partly answered from the object table alone. Before this option existed, **every**
+    benchmark frame carried a seen object (320/320 explicit, 164/164 implied). Reserving
+    whole objects makes the benchmark ask whether the route rule generalises to a topic the
+    model has never met.
+    """
+
     def __post_init__(self) -> None:
         if self.target_per_route <= 0:
             raise ValueError("target_per_route must be positive")
@@ -62,6 +73,8 @@ class ProductOptions:
             raise ValueError("variants must be positive")
         if self.naming not in {"explicit", "implied"}:
             raise ValueError("naming must be 'explicit' or 'implied'")
+        if not 0.0 <= self.object_holdout < 1.0:
+            raise ValueError("object_holdout must be in [0, 1)")
 
 
 @dataclass(frozen=True)
@@ -547,16 +560,46 @@ def _generate_cached(options: ProductOptions) -> FrameProduct:
         selected.extend(_select_route(candidates_by_route[route], quota, options.seed + index))
     selected.sort(key=lambda case: case.frame_id)
 
-    # Hashing the semantic group, rather than rows or text variants, guarantees
-    # that all phrasings of a frame land on the same side of the split.  Selecting
-    # an exact count within each route keeps the held-out benchmark balanced.
-    benchmark_ids: set[str] = set()
-    for route in ROUTE_ORDER:
-        route_cases = [case for case in selected if route_from_frame(case.frame) is route]
-        holdout_count = min(len(route_cases) - 1, max(1, round(len(route_cases) * options.benchmark_fraction)))
-        ranked = sorted(route_cases, key=lambda case: hashlib.sha256(f"{options.seed}:{case.frame_id}".encode()).hexdigest())
-        benchmark_ids.update(case.frame_id for case in ranked[:holdout_count])
+    # Hold out whole *objects*, not frames. The object fixes `source` and `risk` -- 3 of the
+    # 5 deciding slots -- so a frame whose object was seen in training is partly answerable
+    # from the object table. Selecting objects greedily, by the routes they contribute to,
+    # keeps all four routes represented in the held-out half.
+    held_out = _holdout_objects(selected, options)
+    benchmark_ids = {case.frame_id for case in selected if case.frame.object in held_out}
     return FrameProduct(tuple(selected), frozenset(benchmark_ids), options)
+
+
+def _holdout_objects(selected: Sequence[ProductFrameCase], options: ProductOptions) -> set[str]:
+    """Deterministically reserve a route-covering subset of objects for the benchmark."""
+    if options.object_holdout <= 0.0:
+        return set()
+
+    by_object: dict[str, list[ProductFrameCase]] = defaultdict(list)
+    for case in selected:
+        by_object[case.frame.object].append(case)
+    order = sorted(by_object, key=lambda name: hashlib.sha256(f"{options.seed}:{name}".encode()).hexdigest())
+
+    per_object = {name: Counter(route_from_frame(case.frame) for case in cases) for name, cases in by_object.items()}
+    totals = Counter(route_from_frame(case.frame) for case in selected)
+    target = {route: max(1, round(totals[route] * options.benchmark_fraction)) for route in ROUTE_ORDER}
+
+    held: set[str] = set()
+    got: Counter = Counter()
+    for name in order:
+        if all(got[route] >= target[route] for route in ROUTE_ORDER):
+            break
+        held.add(name)
+        got.update(per_object[name])
+    # A route that no early object covers would leave the benchmark unbalanced; top it up
+    # with objects that do contribute there.
+    for route in ROUTE_ORDER:
+        for name in order:
+            if got[route] >= target[route]:
+                break
+            if name not in held and per_object[name].get(route):
+                held.add(name)
+                got.update(per_object[name])
+    return held
 
 
 def generate_frame_product(options: ProductOptions | None = None) -> FrameProduct:

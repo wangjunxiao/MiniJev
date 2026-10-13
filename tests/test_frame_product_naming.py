@@ -151,6 +151,47 @@ def test_every_verb_object_pair_is_one_a_speaker_would_use():
     assert ("查", "安装步骤") in produced
 
 
+def test_no_object_appears_on_both_sides_of_the_split():
+    """Entity leakage, not row leakage.
+
+    The object fixes `source` and `risk` -- 3 of the 5 deciding slots -- so a benchmark frame
+    whose object was seen in training is partly answerable from the object table alone.
+    Before `object_holdout` existed, every benchmark frame carried a seen object (320/320
+    explicit, 164/164 implied), and the benchmark was measuring recall of the object table
+    as much as the ability to read a request.
+    """
+    for naming in ("explicit", "implied"):
+        product = generate_frame_product(ProductOptions(naming=naming))
+        train_objects = {case.frame.object for case in product.train_cases}
+        benchmark_objects = {case.frame.object for case in product.benchmark_cases}
+        assert train_objects and benchmark_objects, naming
+        assert not (train_objects & benchmark_objects), f"{naming}: {sorted(train_objects & benchmark_objects)[:4]}"
+
+
+def test_the_entity_holdout_keeps_every_route_in_the_benchmark():
+    """Reserving objects must not quietly empty a route, or the collapse rate is meaningless."""
+    from minijev.frame_product import product_audit
+
+    for naming in ("explicit", "implied"):
+        audit = product_audit(generate_frame_product(ProductOptions(naming=naming)))
+        counts = audit["benchmark_route_counts"]
+        assert set(counts) == {route.value for route in ROUTE_ORDER}, naming
+        assert min(counts.values()) >= 5, f"{naming}: a route has only {min(counts.values())} benchmark frames"
+
+
+def test_an_empty_object_holdout_puts_everything_in_training():
+    product = generate_frame_product(ProductOptions(naming="implied", object_holdout=0.0))
+    assert not product.benchmark_cases
+    assert len(product.train_cases) == len(product.cases)
+
+
+def test_an_invalid_object_holdout_is_refused():
+    with pytest.raises(ValueError):
+        ProductOptions(object_holdout=1.0)
+    with pytest.raises(ValueError):
+        ProductOptions(object_holdout=-0.1)
+
+
 def test_the_implied_benchmark_is_sized_for_the_effect_it_must_detect():
     """Power, not vibes: state what this instrument can resolve.
 
