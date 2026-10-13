@@ -24,6 +24,8 @@ data/implied/
 # Split directories are derived too, and `data/*.jsonl` does not reach inside them.
 data/*_splits/
 data/splits/
+# Scratch output from measurement scripts; the real corpora are data/implied and data/frame_product.
+data/*_probe/
 data/external/literary/*.jsonl
 data/external/literary/splits/
 data/external/massive/derived_v2/
