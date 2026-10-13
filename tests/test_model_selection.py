@@ -58,7 +58,24 @@ def test_an_unknown_criterion_is_refused():
 
 
 def test_the_criteria_are_the_ones_the_cli_offers():
-    assert set(SELECTION_CRITERIA) == {"macro_f1", "calibration", "combined"}
+    assert set(SELECTION_CRITERIA) == {"macro_f1", "calibration", "combined", "selective"}
+
+
+def test_selective_selection_uses_the_gate_metric_not_the_report_metric():
+    """ECE and gating skill disagree in practice, so the two criteria must be distinct.
+
+    Measured on the implied benchmark: the best-ECE arm (weight 0.1, ECE 0.125) gated at +3.9%
+    skill, while a worse-ECE arm (weight 1.0, ECE 0.157) gated at +18.2%. A criterion that cannot
+    tell those apart cannot select for the ladder.
+    """
+    report = {"macro_f1": 0.50, "confidence": {"ece": 0.10}, "selective": {"aurc": 0.40}}
+    by_ece = selection_score(report, TrainingConfig(select_on="calibration"))
+    by_gate = selection_score(report, TrainingConfig(select_on="selective"))
+    assert by_ece == pytest.approx(-0.10)
+    assert by_gate == pytest.approx(-0.40)
+    # Lower AURC must win.
+    better_gate = {"macro_f1": 0.50, "confidence": {"ece": 0.30}, "selective": {"aurc": 0.20}}
+    assert selection_score(better_gate, TrainingConfig(select_on="selective")) > by_gate
 
 
 def test_the_default_is_still_macro_f1_for_backward_compatibility():

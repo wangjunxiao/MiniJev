@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import random
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -134,6 +136,149 @@ def expected_calibration_error(confidences: Sequence[float], correct: Sequence[b
         mean_confidence = sum(confidences[position] for position in members) / len(members)
         error += (len(members) / total) * abs(accuracy - mean_confidence)
     return error
+
+
+def risk_coverage_curve(confidences: Sequence[float], correct: Sequence[bool]) -> list[tuple[float, float]]:
+    """`(coverage, risk)` as the confidence gate is loosened from strictest to loosest.
+
+    Sort by confidence descending and accept the top `k`. At coverage `k/n`, `risk` is the
+    error rate among the accepted. A confidence that ranks errors below correct predictions
+    produces a risk that climbs with coverage; a confidence that does not produces a flat line
+    at the base error rate.
+
+    Ties are broken by original position, `sorted` being stable, so a curve is reproducible
+    for a given input order. That matters because a model emitting many identical confidences
+    -- a collapsed head, say -- would otherwise give a different curve run to run and the
+    difference would look like a result.
+    """
+    if len(confidences) != len(correct):
+        raise ValueError("confidences and correct must align")
+    if not confidences:
+        return []
+    order = sorted(range(len(confidences)), key=lambda index: -confidences[index])
+    curve: list[tuple[float, float]] = []
+    errors = 0
+    for position, index in enumerate(order, start=1):
+        if not correct[index]:
+            errors += 1
+        curve.append((position / len(order), errors / position))
+    return curve
+
+
+def area_under_risk_coverage(confidences: Sequence[float], correct: Sequence[bool]) -> float:
+    """Mean risk across every coverage level. Lower is better.
+
+    The no-skill value is the base error rate: a confidence that ranks at random accepts errors
+    in proportion to their frequency, so the curve stays flat at the overall error rate. A
+    useful gate pushes the area *below* that. Reporting AURC without the no-skill value invites
+    reading any small number as skill, so `selective_audit` reports both.
+    """
+    curve = risk_coverage_curve(confidences, correct)
+    if not curve:
+        return 0.0
+    return sum(risk for _, risk in curve) / len(curve)
+
+
+def random_ranking_aurc(correct: Sequence[bool], *, trials: int = 200, seed: int = 0) -> float:
+    """The AURC of a confidence that carries no information about correctness.
+
+    This is the correct no-skill reference, and it is *not* simply the base error rate. With all
+    confidences tied, the curve depends entirely on how ties are broken, so a flat confidence can
+    land on either side of the base rate by luck of input order -- a fact that made an earlier
+    version of this module claim skill where there was none, and that two tests caught.
+
+    Averaging the curve over random orderings gives the expected value a genuinely uninformative
+    confidence would produce, which is what a skill ratio needs as its denominator.
+    """
+    if not correct:
+        return 0.0
+    rng = random.Random(seed)
+    total = 0.0
+    for _ in range(trials):
+        # Fresh random values per row. Shuffling a list of indices and then using the index as the
+        # confidence looks equivalent and is not: the curve sorts by confidence, so sorting by
+        # index restores the original order and the "random" baseline silently measures the
+        # identity ranking. That bug made a flat confidence appear to have 0.62 skill.
+        confidences = [rng.random() for _ in range(len(correct))]
+        total += area_under_risk_coverage(confidences, correct)
+    return total / trials
+
+
+def risk_at_coverage(confidences: Sequence[float], correct: Sequence[bool], coverage: float) -> float:
+    """Error rate among the most confident `coverage` fraction.
+
+    This is the number a deployment actually promises: "escalate 20%, and the rest is wrong
+    this often".
+    """
+    if not 0.0 < coverage <= 1.0:
+        raise ValueError("coverage must be in (0, 1]")
+    curve = risk_coverage_curve(confidences, correct)
+    if not curve:
+        return 0.0
+    index = max(0, min(len(curve) - 1, math.ceil(coverage * len(curve)) - 1))
+    return curve[index][1]
+
+
+def coverage_at_risk(confidences: Sequence[float], correct: Sequence[bool], target_risk: float) -> float:
+    """How much can be accepted while keeping the error rate at or below `target_risk`.
+
+    The decision-facing form of the same curve: "to hold errors under 10%, how much must be
+    escalated?" Returns 0.0 when even the single most confident prediction is wrong.
+    """
+    curve = risk_coverage_curve(confidences, correct)
+    best = 0.0
+    for coverage, risk in curve:
+        if risk <= target_risk:
+            best = coverage
+        else:
+            break
+    return best
+
+
+def selective_audit(confidences: Sequence[float], correct: Sequence[bool], bins: int = DEFAULT_ECE_BINS) -> dict[str, Any]:
+    """Calibration *and* discrimination, because they are different questions.
+
+    `expected_calibration_error` asks whether confidence matches accuracy. `area_under_risk_
+    coverage` asks whether confidence *ranks* errors below correct predictions. A model can
+    satisfy the first and fail the second -- constant confidence is perfectly calibrated at the
+    base rate and completely useless as a gate -- so a report that shows only ECE can declare
+    victory while the escalation gate does nothing.
+
+    The accepted-subset ECE is the paper's *selective calibration* (arXiv 2208.12084): among the
+    predictions the gate lets through, is the stated confidence still honest? A gate that removes
+    errors should leave a better-calibrated remainder; one that removes at random will not.
+    """
+    if len(confidences) != len(correct):
+        raise ValueError("confidences and correct must align")
+    if not confidences:
+        return {"rows": 0}
+    base_risk = 1.0 - sum(1 for value in correct if value) / len(correct)
+    aurc = area_under_risk_coverage(confidences, correct)
+    no_skill = random_ranking_aurc(correct)
+    # Selective calibration: among the predictions a gate at this coverage would let through,
+    # is the stated confidence still honest?
+    accepted = sorted(range(len(confidences)), key=lambda index: -confidences[index])[: max(1, math.ceil(0.8 * len(confidences)))]
+    accepted_confidence = [confidences[index] for index in accepted]
+    accepted_correct = [correct[index] for index in accepted]
+    return {
+        "rows": len(confidences),
+        "base_risk": base_risk,
+        "aurc": aurc,
+        "no_skill_aurc": no_skill,
+        # Measured against a confidence that ranks at random, not against the base error rate:
+        # a tie-broken flat confidence can fall either side of the base rate by input order.
+        # 1.0 means no better than chance; negative means anti-correlated, which is a real
+        # failure mode and worth seeing rather than clamping away.
+        "skill_vs_random": (no_skill - aurc) / no_skill if no_skill > 0 else 0.0,
+        "risk_at_80pct_coverage": risk_at_coverage(confidences, correct, 0.8),
+        "risk_at_50pct_coverage": risk_at_coverage(confidences, correct, 0.5),
+        "coverage_at_10pct_risk": coverage_at_risk(confidences, correct, 0.10),
+        "coverage_at_20pct_risk": coverage_at_risk(confidences, correct, 0.20),
+        "ece_all": expected_calibration_error(confidences, correct, bins),
+        "ece_accepted_80pct": expected_calibration_error(accepted_confidence, accepted_correct, bins),
+        "mean_confidence": sum(confidences) / len(confidences),
+        "mean_confidence_accepted": sum(accepted_confidence) / len(accepted_confidence),
+    }
 
 
 def confidence_audit(confidences: Sequence[float], correct: Sequence[bool], bins: int = DEFAULT_ECE_BINS) -> dict[str, Any]:

@@ -23,7 +23,7 @@ from tinygrad.nn.state import get_parameters
 from .confidence import DEFAULT_MEASURE, distribution_shape
 from .config import DATA_DIR, DEFAULT_CHECKPOINT, DEFAULT_METRICS, JevConfig
 from .data import describe
-from .evaluation import classification_report, confidence_audit, majority_baseline
+from .evaluation import classification_report, confidence_audit, majority_baseline, selective_audit
 from .frames import slot_targets
 from .model import TinyJev, load_checkpoint, save_checkpoint
 from .objectives import slot_loss, soft_calibration_loss, supervised_loss
@@ -236,7 +236,7 @@ def preference_targets(
     return Tensor(indices, dtype=dtypes.int32)
 
 
-SELECTION_CRITERIA: tuple[str, ...] = ("macro_f1", "calibration", "combined")
+SELECTION_CRITERIA: tuple[str, ...] = ("macro_f1", "calibration", "combined", "selective")
 """How a checkpoint is chosen from the validation curve.
 
 `macro_f1` is the default and is the wrong ruler whenever calibration is part of the goal. It
@@ -245,9 +245,11 @@ actively selects *against* calibration: the soft-ECE arm at weight 1.0 was picke
 gain was confounded with under-training. A model with less training is less confident and
 therefore usually better calibrated.
 
-`calibration` selects on `-ECE`, and `combined` on `macro_f1 - tradeoff * ECE`, which is what
-you want when the escalation gate needs a confidence that means something but accuracy still
-matters.
+`calibration` selects on `-ECE`, `combined` on `macro_f1 - tradeoff * ECE`, and `selective` on
+`-AURC`. The last one exists because ECE and gating skill turned out to disagree in practice:
+the arm with the best ECE (weight 0.1, 0.125) had gating skill +3.9%, while weight 1.0 with worse
+ECE (0.157) had skill +18.2%. When the confidence drives an escalation gate, the gate's own
+metric is the ruler that matters.
 """
 
 
@@ -258,6 +260,9 @@ def selection_score(validation: Mapping[str, object], config: "TrainingConfig") 
     macro_f1 = float(validation["macro_f1"])  # type: ignore[arg-type]
     if config.select_on == "macro_f1":
         return macro_f1
+    if config.select_on == "selective":
+        # Lower area under the risk-coverage curve is a better gate, so negate it.
+        return -float(validation["selective"]["aurc"])  # type: ignore[index]
     ece = float(validation["confidence"]["ece"])  # type: ignore[index]
     if config.select_on == "calibration":
         return -ece
@@ -285,6 +290,12 @@ def evaluate_split(
     )
     report["confidence"]["measure"] = getattr(policy, "measure", DEFAULT_MEASURE)
     report["confidence"]["escalation_rate"] = sum(1 for decision in decisions if decision.escalated) / (len(decisions) or 1)
+    # Calibration and gating are different questions (arXiv 2208.12084): a model can report
+    # honest probabilities and still let high-confidence errors through. Recording both means a
+    # checkpoint can be selected on whichever one the deployment actually depends on.
+    report["selective"] = selective_audit(
+        [decision.confidence for decision in decisions], [guess is truth for truth, guess in zip(actual, predicted)]
+    )
     shapes = [distribution_shape(decision.route_probs, getattr(policy, "measure", DEFAULT_MEASURE)) for decision in decisions]
     report["distribution"] = {
         "mean_effective_options": sum(shape["effective_options"] for shape in shapes) / (len(shapes) or 1),
