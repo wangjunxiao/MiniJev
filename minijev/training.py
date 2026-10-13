@@ -12,7 +12,7 @@ import argparse
 import json
 import random
 import time
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -60,6 +60,12 @@ class TrainingConfig:
     """Width of the operating-point input. 0 trains a single-trade-off policy."""
     calibration_weight: float = 0.0
     """Weight on the soft calibration loss. 0 leaves the objective as plain cross-entropy."""
+
+    select_on: str = "macro_f1"
+    """Which validation criterion picks the checkpoint. See `SELECTION_CRITERIA`."""
+
+    calibration_tradeoff: float = 1.0
+    """ECE penalty in the `combined` criterion: `macro_f1 - tradeoff * ece`."""
 
     calibration_measure: str = DEFAULT_MEASURE
     """Which confidence measure the calibration term penalises.
@@ -230,6 +236,34 @@ def preference_targets(
     return Tensor(indices, dtype=dtypes.int32)
 
 
+SELECTION_CRITERIA: tuple[str, ...] = ("macro_f1", "calibration", "combined")
+"""How a checkpoint is chosen from the validation curve.
+
+`macro_f1` is the default and is the wrong ruler whenever calibration is part of the goal. It
+actively selects *against* calibration: the soft-ECE arm at weight 1.0 was picked at epoch 5
+(mean confidence 0.52) while the plain arm was picked at epoch 26 (0.84), so the headline ECE
+gain was confounded with under-training. A model with less training is less confident and
+therefore usually better calibrated.
+
+`calibration` selects on `-ECE`, and `combined` on `macro_f1 - tradeoff * ECE`, which is what
+you want when the escalation gate needs a confidence that means something but accuracy still
+matters.
+"""
+
+
+def selection_score(validation: Mapping[str, object], config: "TrainingConfig") -> float:
+    """The scalar a checkpoint is chosen by. Higher is better for every criterion."""
+    if config.select_on not in SELECTION_CRITERIA:
+        raise ValueError(f"select_on must be one of {SELECTION_CRITERIA}, got {config.select_on!r}")
+    macro_f1 = float(validation["macro_f1"])  # type: ignore[arg-type]
+    if config.select_on == "macro_f1":
+        return macro_f1
+    ece = float(validation["confidence"]["ece"])  # type: ignore[index]
+    if config.select_on == "calibration":
+        return -ece
+    return macro_f1 - config.calibration_tradeoff * ece
+
+
 def evaluate_split(
     model: TinyJev,
     tokenizer: ByteTokenizer,
@@ -295,6 +329,7 @@ def fit(
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     best_macro_f1 = -1.0
+    best_score = float("-inf")
     best_epoch = 0
     stale_epochs = 0
     history: list[dict[str, float]] = []
@@ -347,8 +382,10 @@ def fit(
 
             validation = evaluate_split(model, tokenizer, validation_samples, config.batch_size, policy, name="validation", preference=reference)
             macro_f1 = float(validation["macro_f1"])
-            improved = macro_f1 > best_macro_f1 + config.min_delta
+            score = selection_score(validation, config)
+            improved = score > best_score + config.min_delta
             if improved:
+                best_score = score
                 best_macro_f1 = macro_f1
                 best_epoch = epoch
                 stale_epochs = 0
@@ -380,7 +417,16 @@ def fit(
 
     load_checkpoint(model, output)
     log: dict[str, object] = {
-        "config": {**asdict(config), "best_epoch": best_epoch, "parameters": sum(parameter.numel() for parameter in parameters)},
+        "config": {
+            **asdict(config),
+            "best_epoch": best_epoch,
+            # Both numbers are recorded: which one *selected* the checkpoint, and the
+            # macro-F1 it happened to have. Reporting only the latter hides that a
+            # calibration-aware run was chosen on a different ruler.
+            "best_score": best_score,
+            "best_macro_f1": best_macro_f1,
+            "parameters": sum(parameter.numel() for parameter in parameters),
+        },
         "device": str(parameters[0].device),
         "elapsed_seconds": time.perf_counter() - started,
         "checkpoint": str(output.resolve()),
@@ -462,6 +508,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="weight on the soft calibration loss (arXiv 2108.00106); 0 is plain cross-entropy",
     )
     parser.add_argument("--calibration-measure", default=DEFAULT_MEASURE, help="confidence measure the calibration term penalises")
+    parser.add_argument(
+        "--select-on",
+        choices=SELECTION_CRITERIA,
+        default="macro_f1",
+        help="validation criterion for choosing the checkpoint; macro_f1 selects against calibration",
+    )
+    parser.add_argument("--calibration-tradeoff", type=float, default=1.0, help="ECE penalty in the combined criterion")
     return parser
 
 
@@ -495,6 +548,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         preference_dim=args.preference_dim,
         calibration_weight=args.calibration_weight,
         calibration_measure=args.calibration_measure,
+        select_on=args.select_on,
+        calibration_tradeoff=args.calibration_tradeoff,
     )
     policy = policy_from_name(args.policy, measure=args.measure)
     if args.policy == "risk_ladder":
