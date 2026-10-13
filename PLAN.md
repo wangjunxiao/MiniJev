@@ -8,6 +8,65 @@
 
 ## 状态（2026-09-29 → 10-11 持续更新）
 
+### 当前轮（10-11）：reward 层对齐文献 + 基准可解释化
+
+按目标「reward 构建 + 多找参考资料」做了一轮。**参考资料确实改变了实现**，不是走过场。
+
+#### 参考：BaRP（arXiv 2510.07429）
+
+[Learning to Route LLMs from Bandit Feedback: One Policy, Many Trade-offs](https://ar5iv.labs.arxiv.org/html/2510.07429)
+——把路由建模成**带偏好的上下文老虎机**，与「像 RL 但不完全是 RL」这个定位高度吻合。三条可搬的东西：
+
+1. **reward 形式** `r = w_q·q − w_c·min(c/τ, 1)`。我的 `cost_scale` 已经等于 τ（归一化），
+   但**缺了 cap**。没有 cap 时人类审核候选成本 2.0 对模型 0.1，成本项会独自决定比较。
+2. **偏好向量在 1-simplex 上**，训练时均匀采样，推理时按需给定 → **一套策略服务多个权衡点，无需重训**。
+   这是「多目标路由」的核心，我此前完全没有。
+3. REINFORCE 用**熵正则 + 批均值 baseline**；我只实现了 baseline，没有熵项。
+
+#### 落地
+
+| 项 | 内容 |
+|---|---|
+| `RewardWeights.cost_cap` | 归一化成本封顶，**默认 None 保持 `utility-v2` 数字可复现** |
+| `Preference` | 1-simplex 上的质量/成本权重，`at_cost_share()` / `normalized` / `cost_share` |
+| `RewardWeights.with_preference()` | 只改两个权重，其余（scale/cap/error_costs）不动 |
+| `PREFERENCE_SWEEP` | 0 / .25 / .5 / .75 / .9 五个权衡点 |
+| `reward_baselines()` | oracle（每问最优）+ 四个 always-route + `per_query_best_route` |
+| `regret()` | `headroom_captured` = 相对「最佳常数策略」到 oracle 之间捕获了多少 |
+
+#### 我自己写的新代码里的一个真 bug（已修）
+
+偏好扫描第一次跑出**负 headroom**——oracle 低于 floor，数学上不可能。调试发现：
+常数策略**只在它服务得了的行上计分**，于是 `always_rag` 跳过了它无法服务的医疗行（该行 −0.600），
+总分反而**超过** oracle。
+
+**一个会挑行弃权的基线不是基线。** 修复：无法服务某行时按**终态 review 兜底**计分（部署系统本来
+就会这么做，env 已经会合成 review），并在函数里**断言** `oracle ≥ best_constant`——违反它是 bug
+不是发现。修完后 headroom 全为正且随成本权重单调递减（1.0000 → 0.7197 → 0.4645 → 0.2317 → 0.0860），
+这才自洽。
+
+这个 bug 值得记住：**它长得像一个结论**（「成本权重上升时 headroom 变负」完全可以是真发现），
+是「oracle 不可能低于 floor」这条硬不变量把它揪出来的。
+
+#### 实测（RouterBench fixture，4 行）
+
+```
+uncapped:  oracle 3.5950  floor 1.9045 (always_rag)
+capped@1:  oracle 3.6450  floor 2.6545 (always_rag)
+decisions changed by the cap: 0/4
+```
+
+**cap 在这 4 行上只动了算术，没动任何决策**——诚实地说，fixture 太小，无法证明 cap 的价值。
+它的理由来自文献与量纲分析（2.0 vs 0.1），不是来自这份数据。
+
+#### 下一步（仍未做）
+
+- **偏好向量还没成为模型输入。** BaRP 的关键是策略被偏好条件化；现在 `Preference` 只影响 reward
+  计算，模型本身仍是单点。要做成「一套策略、多个权衡点」必须把偏好喂进 encoder。
+- `policy_gradient_loss` 缺熵正则。
+- 没有 bandit-feedback 训练模式（采样动作、只观测该臂）。
+
+
 ### 当前轮（2026-10-13）：slot-product 基准被证明是「读标记」，已加 `implied` 模式
 
 原计划是「用 `frame_product_train.jsonl` 重训四臂」。**先做了一步该先做的事：量这个基准能不能区分模型。**

@@ -13,7 +13,7 @@ added without touching the inference path.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Iterable, Mapping, Protocol
 
 from .schema import ROUTE_ORDER, Candidate, JevSample, Route
@@ -34,6 +34,15 @@ class RewardWeights:
     latency: float = 0.0
     cost_scale: float = 1.0
     latency_scale_ms: float = 1.0
+    cost_cap: float | None = None
+    """Clamp the normalised cost at this value, or leave it uncapped when None.
+
+    BaRP (arXiv 2510.07429) writes the reward as `w_q * q - w_c * min(c/tau, 1)`: cost is
+    divided by a budget `tau` and then capped, precisely so one very expensive arm cannot
+    swamp the quality term. Uncapped, the human-review candidate costs 2.0 against a 0.05
+    weight while every model costs ~0.1, so the cost term decides the comparison on its own.
+    Default None preserves the existing `utility-v2` numbers.
+    """
     # Explicit product assumptions. An empty mapping preserves the original
     # quality-cost utility until real misroute outcomes calibrate these values.
     error_costs: Mapping[Route | str, float] = field(default_factory=dict)
@@ -45,6 +54,12 @@ class RewardWeights:
             raise ValueError("reward weights must be finite")
         if any(float(value) < 0.0 for value in self.error_costs.values()):
             raise ValueError("error costs must be non-negative")
+        if self.cost_cap is not None and not (math.isfinite(self.cost_cap) and self.cost_cap > 0.0):
+            raise ValueError("cost_cap must be a positive finite number or None")
+
+    def with_preference(self, preference: "Preference") -> "RewardWeights":
+        """Re-weight quality against cost without touching anything else."""
+        return replace(self, quality=preference.quality, cost=preference.cost)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -53,6 +68,7 @@ class RewardWeights:
             "latency": self.latency,
             "cost_scale": self.cost_scale,
             "latency_scale_ms": self.latency_scale_ms,
+            "cost_cap": self.cost_cap,
             "error_costs": {key.value if isinstance(key, Route) else str(key): value for key, value in self.error_costs.items()},
         }
 
@@ -63,14 +79,66 @@ class RewardWeights:
         raw_errors = payload.get("error_costs", {})
         if not isinstance(raw_errors, Mapping):
             raise ValueError("error_costs must be a mapping")
+        raw_cap = payload.get("cost_cap")
         return cls(
             quality=float(payload.get("quality", 1.0)),
             cost=float(payload.get("cost", 0.05)),
             latency=float(payload.get("latency", 0.0)),
             cost_scale=float(payload.get("cost_scale", 1.0)),
             latency_scale_ms=float(payload.get("latency_scale_ms", 1.0)),
+            cost_cap=None if raw_cap is None else float(raw_cap),
             error_costs={str(key): float(value) for key, value in raw_errors.items()},
         )
+
+
+@dataclass(frozen=True)
+class Preference:
+    """How much the operator values quality against cost, on the 1-simplex.
+
+    The routing literature's central deployment observation is that the right trade-off is
+    a *property of the request or the customer*, not of the model. BaRP conditions one
+    policy on this vector and samples it uniformly during training, so the operating point
+    is a runtime knob instead of a retrain.
+
+    Weights need not sum to 1 -- `normalized` exists for reporting -- but they must be
+    non-negative and not both zero.
+    """
+
+    quality: float = 1.0
+    cost: float = 1.0
+
+    def __post_init__(self) -> None:
+        if self.quality < 0.0 or self.cost < 0.0:
+            raise ValueError("preference weights must be non-negative")
+        if self.quality == 0.0 and self.cost == 0.0:
+            raise ValueError("a preference with no weight on either objective is not a preference")
+
+    @property
+    def total(self) -> float:
+        return self.quality + self.cost
+
+    @property
+    def normalized(self) -> tuple[float, float]:
+        return (self.quality / self.total, self.cost / self.total)
+
+    @property
+    def cost_share(self) -> float:
+        """Where this sits on the quality-versus-cost axis, 0 = quality only."""
+        return self.cost / self.total
+
+    def to_dict(self) -> dict[str, float]:
+        return {"quality": self.quality, "cost": self.cost}
+
+    @classmethod
+    def at_cost_share(cls, share: float) -> "Preference":
+        """A preference putting `share` of the weight on cost."""
+        if not 0.0 <= share <= 1.0:
+            raise ValueError("cost share must be in [0, 1]")
+        return cls(quality=1.0 - share, cost=share)
+
+
+DEFAULT_PREFERENCE = Preference()
+PREFERENCE_SWEEP: tuple[Preference, ...] = tuple(Preference.at_cost_share(share) for share in (0.0, 0.25, 0.5, 0.75, 0.9))
 
 
 DEFAULT_REWARD_WEIGHTS = RewardWeights()
@@ -120,7 +188,10 @@ def compute_reward(
         cost = float(cost)
         if not math.isfinite(cost) or cost < 0.0:
             raise ValueError("cost must be a finite non-negative number")
-        total -= weights.cost * (cost / weights.cost_scale)
+        normalized_cost = cost / weights.cost_scale
+        if weights.cost_cap is not None:
+            normalized_cost = min(normalized_cost, weights.cost_cap)
+        total -= weights.cost * normalized_cost
     if latency_ms is not None:
         latency_ms = float(latency_ms)
         if not math.isfinite(latency_ms) or latency_ms < 0.0:
@@ -349,6 +420,103 @@ def constant_route_check(env: RouterEnv, queries: Iterable[str]) -> Route | None
         if not table or max(table, key=table.__getitem__) is not best:
             return None
     return best
+
+
+def reward_baselines(
+    env: RouterEnv,
+    queries: Iterable[str],
+    *,
+    weights: RewardWeights = DEFAULT_REWARD_WEIGHTS,
+    fallback: Route = Route.REVIEW,
+) -> dict[str, Any]:
+    """Total reward for the policies any learned router has to beat, plus the ceiling.
+
+    A reward total on its own is uninterpretable: 0.62 could be near-optimal or barely
+    better than always taking the cheapest route. This reports the floor, the ceiling and
+    the constant-route baselines over exactly the queries a policy would face, so a policy's
+    total can be read as *fraction of the available headroom captured*.
+
+    **Every policy must answer every query.** A constant route scored only over the rows it
+    can serve is not comparable to a policy that must serve all of them: an earlier version
+    simply skipped the queries where its route was ineligible, so `always_rag` was credited
+    for ignoring the medical question and its total exceeded the oracle's. Here a constant
+    route that cannot serve a query pays that query's `fallback` (the terminal review action
+    the environment already synthesises) instead of abstaining. The function asserts the
+    resulting invariant, `oracle >= best constant`, because violating it is a bug, not a
+    finding.
+
+    `oracle` is the per-query best route and therefore an upper bound no non-clairvoyant
+    policy can exceed; it is a ceiling for measuring regret, never a baseline to beat.
+    """
+    queries = list(queries)
+    if not queries:
+        return {"queries": 0}
+
+    totals: dict[str, float] = {f"always_{route.value}": 0.0 for route in ROUTE_ORDER}
+    oracle = 0.0
+    unserved = 0
+    per_query_best: dict[str, int] = {route.value: 0 for route in ROUTE_ORDER}
+    routes_available = 0
+
+    for query in queries:
+        table = env.reward_table(query)
+        finite = {route: value for route, value in table.items() if math.isfinite(value)}
+        if not finite:
+            unserved += 1
+            continue
+        routes_available += len(finite)
+        winner = max(finite, key=finite.__getitem__)
+        oracle += finite[winner]
+        per_query_best[winner.value] += 1
+        for route in ROUTE_ORDER:
+            if route in finite:
+                totals[f"always_{route.value}"] += finite[route]
+            elif fallback in finite:
+                # Cannot serve this query: it pays the fallback, as the deployed system
+                # would, rather than being excused from it.
+                totals[f"always_{route.value}"] += finite[fallback]
+
+    best_constant = max(totals, key=totals.__getitem__)
+    if oracle + 1e-9 < totals[best_constant]:
+        raise AssertionError(
+            f"oracle {oracle:.4f} is below the best constant route {totals[best_constant]:.4f}; "
+            "the baselines are being scored over different query sets"
+        )
+    if unserved:
+        raise AssertionError(f"{unserved} queries have no finite action, so no policy can serve them")
+
+    return {
+        "queries": len(queries),
+        "routes_available": routes_available,
+        "fallback": fallback.value,
+        "oracle": oracle,
+        "best_constant": best_constant,
+        "best_constant_total": totals[best_constant],
+        "per_query_best_route": per_query_best,
+        **totals,
+    }
+
+
+def regret(
+    total: float,
+    baselines: Mapping[str, Any],
+) -> dict[str, float]:
+    """Turn a reward total into the comparisons a decision actually needs.
+
+    `headroom_captured` is the fraction of the gap between the best constant policy and the
+    oracle that the policy closed. A policy at or below 0 captured nothing and should not be
+    shipped however good its raw total looks.
+    """
+    oracle = float(baselines.get("oracle", 0.0))
+    floor = float(baselines.get("best_constant_total", 0.0))
+    available = oracle - floor
+    captured = (total - floor) / available if available > 0 else 0.0
+    return {
+        "total": total,
+        "regret_vs_oracle": oracle - total,
+        "gain_over_best_constant": total - floor,
+        "headroom_captured": captured,
+    }
 
 
 __all__ = [
