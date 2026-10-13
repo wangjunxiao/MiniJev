@@ -26,7 +26,7 @@ from .data import describe
 from .evaluation import classification_report, confidence_audit, majority_baseline
 from .frames import slot_targets
 from .model import TinyJev, load_checkpoint, save_checkpoint
-from .objectives import slot_loss, supervised_loss
+from .objectives import slot_loss, soft_calibration_loss, supervised_loss
 from .policies import POLICIES, Policy, RiskLadderPolicy, policy_from_name
 from .rewards import Preference, RewardWeights, compute_reward
 from .schema import ROUTE_INDEX, JevSample, Route, RouteScores
@@ -58,6 +58,15 @@ class TrainingConfig:
     """Weight on the deciding-slot auxiliary loss. 0 disables the heads entirely."""
     preference_dim: int = 0
     """Width of the operating-point input. 0 trains a single-trade-off policy."""
+    calibration_weight: float = 0.0
+    """Weight on the soft calibration loss. 0 leaves the objective as plain cross-entropy."""
+
+    calibration_measure: str = DEFAULT_MEASURE
+    """Which confidence measure the calibration term penalises.
+
+    Must be the measure the decision path reports, or the loss improves a number nobody reads.
+    """
+
     reference: Preference = field(default_factory=Preference)
     """The operating point used for validation-time scoring of a conditioned model.
 
@@ -314,6 +323,13 @@ def fit(
                     preference_tensor = None
                 outputs = model(input_ids, attention_mask, preference=preference_tensor)
                 loss = supervised_loss(outputs, routes, sample_weights=weights, label_smoothing=config.label_smoothing)
+                if config.calibration_weight > 0.0:
+                    # Confidence is not decoration here: the risk ladder reads it to decide
+                    # whether to escalate, so an uninformative confidence mis-sets the
+                    # escalation rate rather than merely looking bad in a report.
+                    loss = loss + config.calibration_weight * soft_calibration_loss(
+                        outputs, routes, measure=config.calibration_measure, sample_weights=weights
+                    )
                 if config.aux_weight > 0.0:
                     # The route is a function of the deciding slots, so predicting those
                     # slots is a denser version of the same question. The auxiliary term
@@ -439,6 +455,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         help="width of the operating-point input; 2 trains one policy for a family of trade-offs",
     )
+    parser.add_argument(
+        "--calibration-weight",
+        type=float,
+        default=0.0,
+        help="weight on the soft calibration loss (arXiv 2108.00106); 0 is plain cross-entropy",
+    )
+    parser.add_argument("--calibration-measure", default=DEFAULT_MEASURE, help="confidence measure the calibration term penalises")
     return parser
 
 
@@ -470,6 +493,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         use_context=args.context,
         aux_weight=args.aux_weight,
         preference_dim=args.preference_dim,
+        calibration_weight=args.calibration_weight,
+        calibration_measure=args.calibration_measure,
     )
     policy = policy_from_name(args.policy, measure=args.measure)
     if args.policy == "risk_ladder":

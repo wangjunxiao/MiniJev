@@ -8,6 +8,74 @@
 
 ## 状态（2026-09-29 → 10-11 持续更新）
 
+### 当前轮（10-11）：RLCD 式校准训练落地 —— **ECE −55.6%，且准确率不降**
+
+#### 参考
+
+[Soft Calibration Objectives for Neural Networks](https://arxiv.org/abs/2108.00106)（Karandikar et al.）
+——**把 ECE 里那个不可微的硬分箱换成三角帽（soft binning）**，整项就可微，可以直接加进训练损失。
+论文在 CIFAR-100 上报告 **ECE −82%，准确率代价 −0.7%**。
+
+配合 [jev.kuhung.me](https://jev.kuhung.me/) 给出的名字 **RLCD（Reinforcement Learning from
+Calibration Decisions）**，这就是目标里「像 RL 但又不完全是 RL」的正解：**对着校准/决策目标优化**，
+而不是对冻死的 reward 做策略梯度。
+
+对 MiniJev 而言这不是锦上添花：**confidence 不是装饰，risk ladder 读它来决定升不升级**。
+校准坏了不是「报告难看」，是**升级率被设错**。
+
+#### 落地
+
+| 项 | 内容 |
+|---|---|
+| `confidence.differentiable_confidence` | `normalized_entropy` / `top_probability` 的张量版 |
+| `objectives.soft_calibration_loss` | Soft-AvECE，三角帽分箱，支持样本权重 |
+| `--calibration-weight` / `--calibration-measure` | 默认 0（纯 CE）；measure 默认与决策路径一致 |
+
+**只惩罚会被上报的那个 measure**。惩罚 `top_probability` 而决策读 `normalized_entropy`，
+就是在优化一个没人看的数字——校准版的「报错指标」。`margin` 被显式拒绝（只有分段光滑），
+拒绝而不是静默降级：静默训练一个空损失会**看起来像实验失败，而不是配置错误**。
+
+可微版本与标量版本的一致性由测试断言（最大差 **5e-8**，float32 噪声）。
+
+#### 结果
+
+| 对照 | ECE | 准确率 |
+|---|---:|---:|
+| **同 epoch 预算（5）**：plain → 校准 | 0.4382 → **0.1944（−55.6%）** | 0.5288 → 0.5353（**+1.2%**） |
+| 对比充分训练的 plain（26 ep） | 0.2955 → 0.1944（−34.2%） | 0.5577 → 0.5353（−4.0%） |
+
+**受控对照里，ECE 降 55.6% 而且准确率还略升。** 保守口径（对比训满的 baseline）是 −34.2% / −4.0%。
+两个数都给：前者排除了「只是训练不足」的解释，后者是更严的对手。
+
+机制是对的：plain@5 是**欠自信**（acc 0.53 / conf 0.09），plain@26 是**过度自信**（conf 0.84 / acc 0.56），
+soft-ECE 把 confidence 拉向 accuracy。
+
+#### 权重扫描是**非单调**的（反直觉，但重要）
+
+| weight | ECE 相对 plain | 准确率 |
+|---:|---:|---:|
+| 0.1 | **+7.8%（更差）** | −0.6% |
+| 0.3 | **+14.8%（更差）** | −3.2% |
+| 1.0 | −34.2% | −4.0% |
+
+**弱的校准惩罚比没有更糟**：小权重下 CE 项仍把 confidence 推高（mean conf 0.843→0.867），
+而校准项弱到压不住它，净效果是两边都变坏。要用就用够大的权重，不要「加一点点试试」。
+
+#### 命名了一个混淆
+
+**按 macro-F1 选模型，等于在校准这件事上反向选择。** 权重 1.0 那一臂被选中的是 **epoch 5**
+（mean conf 0.52），而 plain 被选中是 epoch 26（mean conf 0.84）——训练越少通常越「校准」。
+所以标题数字必须配受控对照才成立。**下一步应当是让验证准则包含校准**（如验证集 ECE，或
+macro-F1 + 校准下限），而不是继续调权重。
+
+#### 我自己两个测试错误（都已更正）
+
+1. 断言「均匀分布 + 混合标签 → 校准损失 ≈ 0」是错的：均匀分布 confidence 是 0，但它仍猜对 25%，
+   **欠自信 0.25 就是 0.25 的失准**。校准是 confidence 与 accuracy 的**匹配**，不是偏好低置信度。
+2. 「损失在 8 步 Adam 内下降」——单独跑过、全量跑挂（随机初始化依赖全局 RNG，且该项噪声大到会反弹）。
+   改为断言**梯度非零**，那才是我真正要测的性质。
+
+
 ### 当前轮（10-11）：偏好条件化的诚实结论 + 参考 [jev.kuhung.me](https://jev.kuhung.me/)
 
 #### 参考资料：Jev 的社区分析（[jev.kuhung.me](https://jev.kuhung.me/) / [GitHub](https://github.com/kuhung/understanding-jev)）

@@ -100,6 +100,39 @@ def confidence_from(probabilities: Sequence[float], measure: str = DEFAULT_MEASU
     return min(max(function(probabilities), 0.0), 1.0)
 
 
+DIFFERENTIABLE_MEASURES: tuple[str, ...] = ("normalized_entropy", "top_probability")
+"""The measures that can be written as a smooth function of the logits.
+
+Calibration-aware training has to penalise the confidence that will actually be *reported*.
+Penalising `top_probability` while the decision path reads `normalized_entropy` would improve a
+number nobody uses, which is the calibration equivalent of reporting the wrong metric. `margin`
+is excluded because a max-minus-runner-up is only piecewise smooth; it is still available for
+measurement through `confidence_from`.
+"""
+
+
+def differentiable_confidence(logits: "object", measure: str = DEFAULT_MEASURE) -> "object":
+    """`confidence_from`, as a Tensor expression, so a loss can be taken against it.
+
+    `logits` is a `Tensor` of shape `[batch, options]`. The formulas match their scalar
+    counterparts in this module exactly; the equivalence is asserted by a test rather than
+    assumed, because a training signal that optimises a different statistic than the one the
+    safety branch thresholds is worse than no signal at all.
+    """
+    import math as _math
+
+    if measure not in DIFFERENTIABLE_MEASURES:
+        raise KeyError(f"{measure!r} is not differentiable; expected one of {sorted(DIFFERENTIABLE_MEASURES)}")
+    probabilities = logits.softmax(axis=-1)  # type: ignore[attr-defined]
+    if measure == "top_probability":
+        return probabilities.max(axis=-1)
+    options = logits.shape[-1]  # type: ignore[attr-defined]
+    if options < 2:
+        return probabilities.max(axis=-1)
+    entropy = -(probabilities * (probabilities + SMALLEST_PROBABILITY).log()).sum(axis=-1)
+    return 1.0 - entropy / _math.log(options)
+
+
 def distribution_shape(probabilities: Sequence[float], measure: str = DEFAULT_MEASURE) -> dict[str, float]:
     """Everything about the shape, so a caller is never bound by our default."""
     values = _clean(probabilities)
