@@ -20,6 +20,7 @@ models/history/
 data/*.jsonl
 !data/hard_benchmark.jsonl
 data/domains/
+data/implied/
 data/external/literary/*.jsonl
 data/external/literary/splits/
 data/external/massive/derived_v2/

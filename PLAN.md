@@ -8,6 +8,87 @@
 
 ## 状态（2026-09-29 → 10-11 持续更新）
 
+### 当前轮（2026-10-13）：slot-product 基准被证明是「读标记」，已加 `implied` 模式
+
+原计划是「用 `frame_product_train.jsonl` 重训四臂」。**先做了一步该先做的事：量这个基准能不能区分模型。**
+答案是**不能**。
+
+写了一个**只读显式标记、完全不用语义**的分类器（来源前缀、`直接列出结果` vs `并解释原因或给出方案`、
+步数子句、风险括号、以及 underspecified 行里直接打印的 `来源线索：device；预计2步；medium风险；extract`），
+在基准和训练集上：
+
+| 语料 | marker-only 准确率 | 多数类 | 模型最好成绩 |
+|---|---:|---:|---:|
+| `frame_product` benchmark (960行) | **1.0000** | 0.2500 | 0.9740 |
+| `frame_product` train (2880行) | **1.0000** | 0.2500 | — |
+| `hard_benchmark`（对照，138行） | 0.2609 | 0.2609 | 0.4783 |
+
+**1.0000 意味着这个语料是一个可确定性解码的标记查找表**：任何在同一分布上训练的模型都会饱和到
+96-97 分（实测正是如此），因此**重训四臂得到的表无法回答编码器问题**。手写基准同一读取器只有
+0.2609（等于瞎猜），这才是「难但可判」的区间。
+
+#### 修复：`ProductOptions.naming`（`explicit` | `implied`）
+
+新增 `implied` 模式，**不命名任何 deciding slot**：
+
+- `source` / `risk` 由**对象本身的含义**决定（`_OBJECT_CONTEXT`，38 个对象：`航班状态`→service、
+  `用药剂量`→高风险）；
+- `derivation` 由**谓语含义**决定（`_PREDICATE_DERIVATION`：`统计`→extract、`分析`→construct）；
+- 步数用**多种自然句式**表达，避免单一标记。
+
+| 语料 | frames | rows | marker-only | 四路 |
+|---|---:|---:|---:|---|
+| explicit benchmark | 320 | 960 | **1.0000** | 240/240/240/240 |
+| **implied benchmark** | **96** | **288** | **0.2500** | 72/72/72/72 |
+| **implied train** | **288** | **864** | **0.2500** | 216/216/216/216 |
+
+marker-only 降到 **0.2500 = 多数类**，即**没有标记可读了**。
+
+#### 过程中修掉的三个真缺陷（全部由测试抓到）
+
+1. **extractive 帧被静默丢弃**：`steps=1` 时两个手写变体完全相同（alternate 只改步数子句），
+   去重检查把它们全部丢掉，于是 **local / rag 候选为 0**，整个语料只剩 cloud 和 review。
+2. **38 个对象的 underspecified 行文本全同**（常量句），产生 111 条重复——跨 split 就是泄漏。
+   现在措辞里带上对象（"帮我把{对象}那件事处理一下"）但不带操作。
+3. `ProductOptions.naming` 未校验，非法值静默走 explicit 分支。
+
+另外 `_generate_cached` 现在把配额**钳制到最小路由的候选数**：语义受限的乘积合法组合本来就少，
+`implied` 只有 384 frame 而不是 1280——**这个缩小是设计信息，不是要抹平的缺陷**。
+
+#### 仍然存在的问题（`implied` 的下一步）
+
+`implied` 的文本仍有**不自然的组合**："预测安装步骤""统计培训材料"。根因是
+**predicate × object 仍然是自由乘积**，而真实语言里动词和宾语是相互选择的。
+所以同类的缺陷还剩一层：`source`/`risk` 已经由对象蕴含，但**谓语还没有和对象匹配**。
+下一步应是**对象 → 允许谓语**的白名单表。
+
+---
+
+### 上一轮（2026-10-13）：reward 数据层落地，暂不启动 RL
+
+当前确实已经进入 reward 搭建阶段，但还没有进入 policy-gradient 训练阶段。已有的
+`RouterBenchConvertor` 现在把每个模型的质量、成本、延迟、可用性和模型名写入
+`Candidate` 反事实表，并按 `utility-v2` 重新计算候选 reward：
+
+```text
+quality_weight * quality
+- cost_weight * cost / cost_scale
+- latency_weight * latency_ms / latency_scale_ms
+- error_cost(route) * (1 - quality)
+```
+
+- `available=false` 或质量低于阈值的候选不可选，reward 在运行时为 `-inf`；没有任何可用模型时
+  自动保留终态 `review` 候选。
+- availability 缺失保留为 `null`，`reward_audit` 单独报告 missing，避免把没有观测到的可用性
+  当成成功。
+- reward 配置写入每行 metadata，`OfflineRouterEnv` 默认复用数据中的配置；显式传入配置才会覆盖它。
+- `minijev.convert routerbench --audit` 现在报告可用动作数、不可用数、缺失数、每行可选动作覆盖和
+  best-route 分布；这一步是离线 bandit 前的门禁。
+
+本轮仍不训练 RL。当前 fixture 只有 4 行且没有真实 availability，仍是 plumbing fixture；真实
+RouterBench 导出和实测人工误路由代价到位后，才进入 LinUCB / 离线 Thompson baseline，再考虑
+policy gradient。下一步优先是拿真实导出跑 `--audit`，确认每路动作支持和 reward 分布，而不是先改算法。
+
 ### 本轮（2026-10-11）：四领域语料 + 上下文状态 + 槽位辅助监督
 
 按提议做了三件事：训练集按**新闻/哲学/文学/学术**四域划分、给样本加**上下文状态**、

@@ -44,6 +44,14 @@ class ProductOptions:
     benchmark_fraction: float = 0.25
     variants: int = 3
     seed: int = 17
+    naming: str = "explicit"
+    """`explicit` states each deciding slot in the text; `implied` never does.
+
+    Measured difference: a classifier reading only the explicit markers reconstructs the
+    route at **1.0000** on the explicit product and 0.2609 (chance) on the hand-written
+    benchmark. So `explicit` is a marker lookup and cannot separate encoders -- every arm
+    saturates near 0.97. `implied` has no marker to read.
+    """
 
     def __post_init__(self) -> None:
         if self.target_per_route <= 0:
@@ -52,6 +60,8 @@ class ProductOptions:
             raise ValueError("benchmark_fraction must be between 0 and 1")
         if self.variants <= 0:
             raise ValueError("variants must be positive")
+        if self.naming not in {"explicit", "implied"}:
+            raise ValueError("naming must be 'explicit' or 'implied'")
 
 
 @dataclass(frozen=True)
@@ -120,6 +130,15 @@ def product_contrast_pairs(product_set: FrameProduct, *, split: str = "benchmark
 # The source phrase is intentionally visible in the query.  It gives the model
 # a learnable cue for the deciding slot while retaining enough surface variation
 # in predicates and objects to prevent an id-only lookup.
+#
+# Measured caveat, and the reason `naming="implied"` exists: making the slot visible is
+# not a cue, it is a *decoder*. A classifier that reads only these markers -- the source
+# prefix, the derivation clause, the step clauses, the risk bracket and the
+# `来源线索：` hint -- reconstructs the route with **accuracy 1.0000** on both product
+# splits, against 0.2609 (chance) on the hand-written benchmark. So the explicit product
+# measures marker lookup: every model trained on it saturates near 97%, and the corpus
+# cannot separate encoders. `naming="implied"` removes every marker and makes the route
+# follow from what the words mean instead.
 _SOURCE_PHRASES: dict[Source, tuple[str, str]] = {
     Source.GIVEN_TEXT: ("给定文本中的", "输入里的"),
     Source.DEVICE: ("设备里的", "本机中的"),
@@ -128,6 +147,94 @@ _SOURCE_PHRASES: dict[Source, tuple[str, str]] = {
     Source.SERVICE: ("在线服务返回的", "外部服务里的"),
     Source.NONE: ("", "已知的"),
 }
+
+_PREDICATE_DERIVATION: dict[str, Derivation] = {
+    # Reading or transforming something that exists is extractive; producing a judgement,
+    # a comparison or a plan is constructive. This is the implication a reader makes, and
+    # it is what replaces the explicit "，并解释原因或给出方案" marker.
+    "查": Derivation.EXTRACT,
+    "统计": Derivation.EXTRACT,
+    "列出": Derivation.EXTRACT,
+    "核对": Derivation.EXTRACT,
+    "翻译": Derivation.EXTRACT,
+    "转成": Derivation.EXTRACT,
+    "读取": Derivation.EXTRACT,
+    "提取": Derivation.EXTRACT,
+    "分析": Derivation.CONSTRUCT,
+    "比较": Derivation.CONSTRUCT,
+    "总结": Derivation.CONSTRUCT,
+    "规划": Derivation.CONSTRUCT,
+    "解释": Derivation.CONSTRUCT,
+    "评估": Derivation.CONSTRUCT,
+    "设计": Derivation.CONSTRUCT,
+    "预测": Derivation.CONSTRUCT,
+}
+
+_OBJECT_CONTEXT: dict[str, tuple[Source, Risk, str]] = {
+    # Where a thing naturally lives and how costly it is to get it wrong. The source and
+    # the risk are *implied by the object*, so the text never has to state them.
+    #
+    # The table has to spread across all four routes, because the implied product can only
+    # take route-balanced quotas from what the table offers: a source class with too few
+    # objects caps the whole corpus.
+    # document -> rag
+    "安装步骤": (Source.DOCUMENT, Risk.LOW, "product_manual"),
+    "产品规格": (Source.DOCUMENT, Risk.LOW, "product_manual"),
+    "错误码含义": (Source.DOCUMENT, Risk.LOW, "tech_documentation"),
+    "培训材料": (Source.DOCUMENT, Risk.LOW, "enterprise_knowledge"),
+    "保修条款": (Source.DOCUMENT, Risk.LOW, "product_manual"),
+    "入职指引": (Source.DOCUMENT, Risk.LOW, "enterprise_knowledge"),
+    # user records -> rag
+    "报销明细": (Source.USER_DATA, Risk.LOW, "enterprise_knowledge"),
+    "季度数据": (Source.USER_DATA, Risk.LOW, "planning"),
+    "项目进度": (Source.USER_DATA, Risk.LOW, "enterprise_knowledge"),
+    "库存数量": (Source.USER_DATA, Risk.LOW, "enterprise_knowledge"),
+    "排班表": (Source.USER_DATA, Risk.LOW, "enterprise_knowledge"),
+    "预算变化": (Source.USER_DATA, Risk.MEDIUM, "planning"),
+    "客户名单": (Source.USER_DATA, Risk.MEDIUM, "enterprise_knowledge"),
+    "合同条款": (Source.USER_DATA, Risk.MEDIUM, "legal"),
+    # live services -> rag
+    "服务用量": (Source.SERVICE, Risk.LOW, "realtime_info"),
+    "天气信息": (Source.SERVICE, Risk.LOW, "realtime_info"),
+    "汇率报价": (Source.SERVICE, Risk.LOW, "realtime_info"),
+    "物流轨迹": (Source.SERVICE, Risk.LOW, "realtime_info"),
+    "航班状态": (Source.SERVICE, Risk.MEDIUM, "realtime_info"),
+    # text already in hand, low stakes -> local
+    "会议记录": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion"),
+    "部署日志": (Source.GIVEN_TEXT, Risk.LOW, "code_analysis"),
+    "接口响应": (Source.GIVEN_TEXT, Risk.LOW, "code_analysis"),
+    "客户来信": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion"),
+    "问卷作答": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion"),
+    "访谈文字稿": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion"),
+    "变更说明": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion"),
+    "巡检笔记": (Source.GIVEN_TEXT, Risk.LOW, "format_conversion"),
+    "测试报告": (Source.GIVEN_TEXT, Risk.LOW, "code_analysis"),
+    "故障原因": (Source.GIVEN_TEXT, Risk.MEDIUM, "code_analysis"),
+    "实验结果": (Source.GIVEN_TEXT, Risk.MEDIUM, "academic"),
+    "现场照片说明": (Source.GIVEN_TEXT, Risk.MEDIUM, "format_conversion"),
+    # intrinsically high stakes -> review whatever is asked
+    "权限记录": (Source.USER_DATA, Risk.HIGH, "security"),
+    "用药剂量": (Source.NONE, Risk.HIGH, "medical"),
+    "体检指标": (Source.NONE, Risk.HIGH, "medical"),
+    "投资方案": (Source.NONE, Risk.HIGH, "financial"),
+    "抵押方案": (Source.NONE, Risk.HIGH, "financial"),
+    "隐私条款": (Source.NONE, Risk.HIGH, "legal"),
+    "竞业协议": (Source.NONE, Risk.HIGH, "legal"),
+}
+"""Objects whose meaning fixes the source and the stakes.
+
+`review` has to be reachable without a marker, so several objects are intrinsically
+high-stakes: a dose, an investment, a privacy clause. Their route is review for *any*
+predicate, which is exactly the boundary the hand-written bank tests by hand.
+"""
+
+_IMPLIED_STEP_CLAUSES: tuple[tuple[str, ...], ...] = (
+    (),
+    ("并给出下一步", "然后说明怎么处理", "接着列出要做的事"),
+    ("再排好优先级", "最后给出完整方案", "并说明各自的取舍"),
+)
+"""Step phrasing by count. Several alternatives per count so that no single clause is a
+perfect key -- the count has to be inferred from how many things are asked for."""
 
 _PREDICATES: tuple[str, ...] = (
     "查",
@@ -215,11 +322,17 @@ def _build_text(
     return text
 
 
-def _variants(frame: RouteFrame, *, variants: int) -> tuple[str, ...]:
-    texts = [
-        _build_text(frame.predicate, frame.object, frame.source, frame.derivation, frame.steps, frame.risk, frame.underspecified),
-        _build_text(frame.predicate, frame.object, frame.source, frame.derivation, frame.steps, frame.risk, frame.underspecified, alternate=True),
-    ]
+def _variants(frame: RouteFrame, *, variants: int, naming: str = "explicit") -> tuple[str, ...]:
+    if naming == "implied":
+        texts = [
+            _build_implied_text(frame.predicate, frame.object, frame.steps, frame.underspecified),
+            _build_implied_text(frame.predicate, frame.object, frame.steps, frame.underspecified, alternate=True),
+        ]
+    else:
+        texts = [
+            _build_text(frame.predicate, frame.object, frame.source, frame.derivation, frame.steps, frame.risk, frame.underspecified),
+            _build_text(frame.predicate, frame.object, frame.source, frame.derivation, frame.steps, frame.risk, frame.underspecified, alternate=True),
+        ]
     suffixes = ("请按这些条件回答。", "结果请说清楚。", "需要时说明判断依据。")
     index = 0
     while len(texts) < variants:
@@ -228,7 +341,70 @@ def _variants(frame: RouteFrame, *, variants: int) -> tuple[str, ...]:
     return tuple(texts[:variants])
 
 
-def _candidate_cases() -> Iterable[ProductFrameCase]:
+def _build_implied_text(predicate: str, object_: str, steps: int, underspecified: bool, *, alternate: bool = False) -> str:
+    """Text that never names a deciding slot.
+
+    Every slot must be inferred: the predicate carries the derivation (`统计` is
+    extractive, `分析` is constructive), the object carries the source and the stakes
+    (`航班状态` must come from a service; `用药剂量` is high-risk whatever is asked), and
+    the step count shows up as how many things the sentence asks for. Nothing is labelled,
+    so there is no marker to look up -- which is the whole point.
+    """
+    if underspecified:
+        # The topic is named but the operation never is, so the frame is underspecified
+        # however the object reads. It must still vary by object: an earlier version
+        # returned one constant sentence, so all 38 objects produced identical rows.
+        return f"帮我把{object_}那件事处理一下" if not alternate else f"{object_}这事儿你看着办吧"
+
+    # The two realisations must differ even when there is no step clause to vary. They
+    # originally did not, so `steps=1` frames produced duplicate variants, the uniqueness
+    # check dropped them, and every extractive frame silently vanished -- taking `local`
+    # and `rag` with it.
+    text = f"帮我{predicate}一下{object_}" if alternate else f"{predicate}{object_}"
+    clauses = _IMPLIED_STEP_CLAUSES[min(steps, len(_IMPLIED_STEP_CLAUSES)) - 1]
+    if clauses:
+        # Deterministic per (predicate, object) so a variant is stable across runs, but
+        # not the same clause for every frame at that step count.
+        index = (len(predicate) + len(object_)) % len(clauses)
+        text += "，" + clauses[(index + (1 if alternate else 0)) % len(clauses)]
+    return text
+
+
+def _implied_candidate_cases() -> Iterable[ProductFrameCase]:
+    """The product with every deciding slot implied rather than stated.
+
+    The free cross-product is not available here, and that is the finding: source and risk
+    are properties of the *object*, and the derivation is a property of the *predicate*.
+    Any other combination is a sentence no speaker would produce, and the only way to make
+    it readable is to label it -- which is exactly what turned the explicit product into a
+    marker lookup. So this product varies what genuinely varies (predicate, steps,
+    underspecified) inside each object's natural context.
+    """
+    serial = 0
+    for object_, (source, risk, domain) in _OBJECT_CONTEXT.items():
+        for predicate in _PREDICATES:
+            derivation = _PREDICATE_DERIVATION[predicate]
+            for steps in _STEPS:
+                if derivation is Derivation.EXTRACT and steps > 1:
+                    # A second clause on an extractive verb reads as a second request,
+                    # which would make it constructive; keep the slot combination honest.
+                    continue
+                frame = RouteFrame(predicate, object_, source, derivation, steps=steps, risk=risk, domain=domain)
+                frame_id = f"im{serial:06d}"
+                serial += 1
+                variants = _variants(frame, variants=3, naming="implied")
+                if len(set(variants)) != len(variants):
+                    continue
+                yield ProductFrameCase(frame_id, frame, variants)
+        # The vague request: the object is named but never asked about, so the frame is
+        # underspecified and routes to review whatever else is true of it.
+        frame = RouteFrame("处理", object_, source, Derivation.EXTRACT, steps=1, risk=risk, underspecified=True, domain=domain)
+        frame_id = f"im{serial:06d}"
+        serial += 1
+        yield ProductFrameCase(frame_id, frame, _variants(frame, variants=3, naming="implied"))
+
+
+def _candidate_cases(naming: str = "explicit") -> Iterable[ProductFrameCase]:
     """Yield the legal slot product before route-balanced selection.
 
     An underspecified request names a topic ("关于安装步骤的") but never states what to do
@@ -240,6 +416,9 @@ def _candidate_cases() -> Iterable[ProductFrameCase]:
     identical queries, and a duplicate that straddles the train/benchmark split is
     leakage -- the row would measure recall instead of routing.
     """
+    if naming == "implied":
+        yield from _implied_candidate_cases()
+        return
 
     serial = 0
     for predicate, object_, source, derivation, steps, risk, underspecified in product(
@@ -310,12 +489,23 @@ def _generate_cached(options: ProductOptions) -> FrameProduct:
     """Generate a balanced, deterministic frame product and group split."""
 
     candidates_by_route: dict[Route, list[ProductFrameCase]] = defaultdict(list)
-    for case in _candidate_cases():
+    for case in _candidate_cases(options.naming):
         candidates_by_route[route_from_frame(case.frame)].append(case)
+
+    # A semantically constrained product has fewer legal combinations than a free
+    # cross-product: `implied` takes source and risk from the object, so the object table
+    # caps every route. Clamping every route to the smallest one keeps the balance, which
+    # is the property that matters, at the cost of a smaller corpus -- and the reduction is
+    # real information about the design rather than something to paper over.
+    available = {route: len(candidates_by_route[route]) for route in ROUTE_ORDER}
+    missing = [route.value for route, count in available.items() if count < 2]
+    if missing:
+        raise ValueError(f"no candidates for route(s) {missing} under naming={options.naming!r}")
+    quota = min(options.target_per_route, min(available.values()))
 
     selected: list[ProductFrameCase] = []
     for index, route in enumerate(ROUTE_ORDER):
-        selected.extend(_select_route(candidates_by_route[route], options.target_per_route, options.seed + index))
+        selected.extend(_select_route(candidates_by_route[route], quota, options.seed + index))
     selected.sort(key=lambda case: case.frame_id)
 
     # Hashing the semantic group, rather than rows or text variants, guarantees
@@ -350,7 +540,7 @@ def product_rows(product_set: FrameProduct, *, split: str = "all", variants: int
         if split == "train" and held_out or split == "benchmark" and not held_out:
             continue
         route = route_from_frame(case.frame)
-        for index, text in enumerate(_variants(case.frame, variants=count)):
+        for index, text in enumerate(_variants(case.frame, variants=count, naming=product_set.options.naming)):
             rows.append(
                 JevSample(
                     query=text,
@@ -434,13 +624,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--benchmark-fraction", type=float, default=ProductOptions.benchmark_fraction)
     parser.add_argument("--variants", type=int, default=ProductOptions.variants)
     parser.add_argument("--seed", type=int, default=ProductOptions.seed)
+    parser.add_argument(
+        "--naming",
+        choices=("explicit", "implied"),
+        default=ProductOptions.naming,
+        help="explicit states each deciding slot in the text (a marker lookup); implied never does",
+    )
     parser.add_argument("--audit", action="store_true", help="print the manifest without writing files")
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
-    options = ProductOptions(args.target_per_route, args.benchmark_fraction, args.variants, args.seed)
+    options = ProductOptions(args.target_per_route, args.benchmark_fraction, args.variants, args.seed, args.naming)
     product_set = generate_frame_product(options)
     manifest = {"version": "slot-product-v1", "options": vars(options), "audit": product_audit(product_set)}
     if args.audit:

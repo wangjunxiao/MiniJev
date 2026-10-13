@@ -51,16 +51,24 @@ class Candidate:
     """
 
     route: Route
-    reward: float
+    reward: float | None
     quality: float | None = None
     cost: float | None = None
     latency_ms: float | None = None
     propensity: float | None = None
+    model: str | None = None
+    available: bool | None = None
     eligible: bool = True
 
     def to_dict(self) -> dict[str, Any]:
-        payload: dict[str, Any] = {"route": self.route.value, "reward": self.reward}
-        for key in ("quality", "cost", "latency_ms", "propensity"):
+        # An unavailable/ineligible action has no finite utility. Store that as
+        # JSON null; the reward function reconstructs ``-inf`` from eligibility
+        # and availability when the row is replayed.
+        payload: dict[str, Any] = {
+            "route": self.route.value,
+            "reward": self.reward if self.reward is None or math.isfinite(self.reward) else None,
+        }
+        for key in ("quality", "cost", "latency_ms", "propensity", "model", "available"):
             value = getattr(self, key)
             if value is not None:
                 payload[key] = value
@@ -72,17 +80,34 @@ class Candidate:
     def from_dict(cls, row: Mapping[str, Any]) -> "Candidate":
         return cls(
             route=Route(str(row["route"])),
-            reward=float(row["reward"]),
+            reward=_optional_float(row.get("reward")),
             quality=_optional_float(row.get("quality")),
             cost=_optional_float(row.get("cost")),
             latency_ms=_optional_float(row.get("latency_ms")),
             propensity=_optional_float(row.get("propensity")),
+            model=None if row.get("model") is None else str(row["model"]),
+            available=_optional_bool(row.get("available")),
             eligible=row.get("eligible", True) is not False,
         )
 
 
 def _optional_float(value: Any) -> float | None:
     return None if value is None else float(value)
+
+
+def _optional_bool(value: Any) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "1", "yes", "y", "available", "ok", "success", "up"}:
+        return True
+    if normalized in {"false", "0", "no", "n", "unavailable", "failed", "down"}:
+        return False
+    raise ValueError(f"cannot parse boolean value {value!r}")
 
 
 @dataclass(frozen=True)

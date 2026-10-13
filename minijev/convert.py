@@ -17,15 +17,17 @@ import re
 from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Iterable, Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
+from .rewards import REWARD_VERSION, RewardWeights, compute_reward, reward_audit
 from .schema import ROUTE_ORDER, Candidate, JevSample, Route
 
 ROUTERBENCH_SOURCE = "routerbench"
 ROUTERBENCH_SCORE_FIELDS = ("score", "performance", "quality", "accuracy", "reward")
 ROUTERBENCH_COST_FIELDS = ("total_cost", "cost", "price")
 ROUTERBENCH_LATENCY_FIELDS = ("latency_ms", "latency", "time_ms")
+ROUTERBENCH_AVAILABILITY_FIELDS = ("available", "availability", "is_available", "success", "status")
 
 # Priors for the terminal human-review action when no recorded model qualifies.
 # RouterBench has no column for it; these are declared placeholders, not
@@ -49,6 +51,29 @@ def _number(value: object) -> float | None:
 def _first_number(row: dict[str, object], names: tuple[str, ...]) -> float | None:
     for name in names:
         value = _number(row.get(name))
+        if value is not None:
+            return value
+    return None
+
+
+def _bool(value: object) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "1", "yes", "y", "available", "ok", "success", "up", "ready"}:
+        return True
+    if normalized in {"false", "0", "no", "n", "unavailable", "failed", "down", "error", "timeout"}:
+        return False
+    return None
+
+
+def _first_bool(row: dict[str, object], names: tuple[str, ...]) -> bool | None:
+    for name in names:
+        value = _bool(row.get(name))
         if value is not None:
             return value
     return None
@@ -89,21 +114,27 @@ def _load_records(path: str | Path) -> list[dict[str, object]]:
     raise ValueError(f"unsupported RouterBench file type {path.suffix!r}; use .jsonl, .json, .csv, or .parquet")
 
 
-def _model_cells(row: dict[str, object]) -> dict[str, dict[str, float | None]]:
+def _model_cells(row: dict[str, object]) -> dict[str, dict[str, object]]:
     """Extract model score/cost cells from nested and RouterBench wide rows."""
     models: dict[str, dict[str, float | None]] = {}
     nested = row.get("models") or row.get("model_scores") or row.get("results")
     cost_map = row.get("model_costs") or row.get("costs")
     latency_map = row.get("model_latencies") or row.get("latencies")
+    availability_map = row.get("model_availability") or row.get("availability")
     if isinstance(nested, dict):
         for model, value in nested.items():
             cells = value if isinstance(value, dict) else {"score": value}
             model_cost = cost_map.get(model) if isinstance(cost_map, dict) else None
             model_latency = latency_map.get(model) if isinstance(latency_map, dict) else None
+            model_available = availability_map.get(model) if isinstance(availability_map, dict) else None
+            nested_cost = _first_number(cells, ROUTERBENCH_COST_FIELDS) if isinstance(cells, dict) else None
+            nested_latency = _first_number(cells, ROUTERBENCH_LATENCY_FIELDS) if isinstance(cells, dict) else None
+            nested_available = _first_bool(cells, ROUTERBENCH_AVAILABILITY_FIELDS) if isinstance(cells, dict) else None
             models[str(model)] = {
                 "score": _first_number(cells, ROUTERBENCH_SCORE_FIELDS),
-                "cost": _first_number(cells, ROUTERBENCH_COST_FIELDS) if isinstance(cells, dict) else _number(model_cost),
-                "latency_ms": _first_number(cells, ROUTERBENCH_LATENCY_FIELDS) if isinstance(cells, dict) else _number(model_latency),
+                "cost": nested_cost if nested_cost is not None else _number(model_cost),
+                "latency_ms": nested_latency if nested_latency is not None else _number(model_latency),
+                "available": nested_available if nested_available is not None else _bool(model_available),
             }
     for key, value in row.items():
         match = re.match(r"^(.+)\|([^|]+)$", str(key))
@@ -118,11 +149,16 @@ def _model_cells(row: dict[str, object]) -> dict[str, dict[str, float | None]]:
             if field in ROUTERBENCH_COST_FIELDS
             else "latency_ms"
             if field in ROUTERBENCH_LATENCY_FIELDS
+            else "available"
+            if field in ROUTERBENCH_AVAILABILITY_FIELDS
             else None
         )
         if kind is None:
             continue
-        models.setdefault(model, {"score": None, "cost": None, "latency_ms": None})[kind] = _number(value)
+        if kind == "available":
+            models.setdefault(model, {"score": None, "cost": None, "latency_ms": None, "available": None})[kind] = _bool(value)
+        else:
+            models.setdefault(model, {"score": None, "cost": None, "latency_ms": None, "available": None})[kind] = _number(value)
     return models
 
 
@@ -159,6 +195,9 @@ class RouterBenchConvertor(Convertor):
     name: str = "routerbench"
     source: str = ROUTERBENCH_SOURCE
     quality_threshold: float = 0.8
+    reward_weights: RewardWeights = field(default_factory=RewardWeights)
+    review_cost: float = ROUTERBENCH_REVIEW_COST
+    review_latency_ms: float = ROUTERBENCH_REVIEW_LATENCY_MS
 
     def rows(self, path: str | Path, partition: str = "all") -> Iterator[JevSample]:
         records = _load_records(path)
@@ -169,8 +208,13 @@ class RouterBenchConvertor(Convertor):
             scored = [(name, cells) for name, cells in models.items() if cells.get("score") is not None]
             if not scored:
                 raise ValueError(f"RouterBench row {index} has no model score fields")
-            ranked = sorted(scored, key=lambda item: (item[1].get("cost") is None, item[1].get("cost") or 0.0, item[0]))
-            qualifying = [(name, cells) for name, cells in ranked if float(cells["score"]) >= self.quality_threshold]
+            ranked = sorted(
+                scored,
+                key=lambda item: (item[1].get("cost") is None, item[1].get("cost") if item[1].get("cost") is not None else float("inf"), item[0]),
+            )
+            qualifying = [
+                (name, cells) for name, cells in ranked if float(cells["score"]) >= self.quality_threshold and cells.get("available") is not False
+            ]
             if not qualifying:
                 route = Route.REVIEW
                 selected_name = None
@@ -178,18 +222,25 @@ class RouterBenchConvertor(Convertor):
                 selected_name = qualifying[0][0]
                 tier = next(position for position, (name, _) in enumerate(ranked) if name == selected_name)
                 route = (Route.LOCAL, Route.RAG, Route.CLOUD)[min(tier, 2)]
-            candidates = tuple(self._candidate(cells, position, ranked) for position, (_, cells) in enumerate(ranked))
+            candidates = tuple(self._candidate(name, cells, position, ranked) for position, (name, cells) in enumerate(ranked))
             if route is Route.REVIEW:
                 # No recorded model clears the bar, so the honest counterfactual is
                 # the terminal review action with declared placeholders for its cost.
                 candidates = candidates + (
                     Candidate(
                         route=Route.REVIEW,
-                        reward=self.quality_threshold,
+                        reward=compute_reward(
+                            Route.REVIEW,
+                            quality=self.quality_threshold,
+                            cost=self.review_cost,
+                            latency_ms=self.review_latency_ms,
+                            weights=self.reward_weights,
+                        ),
                         quality=self.quality_threshold,
-                        cost=ROUTERBENCH_REVIEW_COST,
-                        latency_ms=ROUTERBENCH_REVIEW_LATENCY_MS,
+                        cost=self.review_cost,
+                        latency_ms=self.review_latency_ms,
                         propensity=None,
+                        model="human_review",
                         eligible=True,
                     ),
                 )
@@ -198,8 +249,12 @@ class RouterBenchConvertor(Convertor):
                 "quality_threshold": self.quality_threshold,
                 "selected_model": selected_name,
                 "route_policy": "cheapest_qualifying_model_v1",
+                "reward_version": REWARD_VERSION,
+                "reward_weights": self.reward_weights.to_dict(),
                 "model_scores": {name: cells.get("score") for name, cells in ranked},
                 "model_costs": {name: cells.get("cost") for name, cells in ranked},
+                "model_latencies": {name: cells.get("latency_ms") for name, cells in ranked},
+                "model_availability": {name: cells.get("available") for name, cells in ranked},
             }
             for key in ("eval_name", "source", "category", "task", "split"):
                 if row.get(key) is not None:
@@ -224,9 +279,11 @@ class RouterBenchConvertor(Convertor):
         aliases = {"dev": "val", "validation": "val", "development": "val"}
         return aliases.get(str(value).lower(), str(value).lower()) == aliases.get(partition.lower(), partition.lower())
 
-    def _candidate(self, cells: dict[str, float | None], position: int, ranked: list[tuple[str, dict[str, float | None]]]) -> Candidate:
+    def _candidate(self, model: str, cells: dict[str, object], position: int, ranked: list[tuple[str, dict[str, object]]]) -> Candidate:
         score = float(cells["score"] or 0.0)
         cost = cells.get("cost")
+        available = cells.get("available")
+        eligible = score >= self.quality_threshold and available is not False
         # Uniform propensity is a placeholder: it pretends the data was collected
         # under a random router. Off-policy evaluation must replace it with the
         # true behaviour-policy probabilities before any IPS estimate is trusted.
@@ -234,12 +291,22 @@ class RouterBenchConvertor(Convertor):
         tier_route = (Route.LOCAL, Route.RAG, Route.CLOUD)[min(position, 2)]
         return Candidate(
             route=tier_route,
-            reward=score,
+            reward=compute_reward(
+                tier_route,
+                quality=score,
+                cost=cost,
+                latency_ms=cells.get("latency_ms"),
+                weights=self.reward_weights,
+                eligible=eligible,
+                available=available,
+            ),
             quality=score,
             cost=cost,
             latency_ms=cells.get("latency_ms"),
             propensity=propensity,
-            eligible=score >= self.quality_threshold,
+            model=model,
+            available=available,
+            eligible=eligible,
         )
 
     def audit(self, path: str | Path, partition: str = "all") -> dict[str, object]:
@@ -250,6 +317,8 @@ class RouterBenchConvertor(Convertor):
             "rows": len(rows),
             "quality_threshold": self.quality_threshold,
             "route_policy": "cheapest_qualifying_model_v1",
+            "reward_version": REWARD_VERSION,
+            "reward_weights": self.reward_weights.to_dict(),
             "route_counts": {route.value: counts.get(route.value, 0) for route in ROUTE_ORDER},
             "with_counterfactuals": sum(row.has_counterfactuals for row in rows),
             "review_rows_with_synthesized_candidate": counts.get(Route.REVIEW.value, 0),
@@ -473,13 +542,49 @@ def _command_convert(args: argparse.Namespace) -> None:
 
 
 def _command_routerbench(args: argparse.Namespace) -> None:
-    convertor = RouterBenchConvertor(quality_threshold=args.quality_threshold)
+    error_costs = _parse_error_costs(args.error_cost)
+    weights = RewardWeights(
+        quality=args.quality_weight,
+        cost=args.cost_weight,
+        latency=args.latency_weight,
+        cost_scale=args.cost_scale,
+        latency_scale_ms=args.latency_scale_ms,
+        error_costs=error_costs,
+    )
+    convertor = RouterBenchConvertor(
+        quality_threshold=args.quality_threshold,
+        reward_weights=weights,
+        review_cost=args.review_cost,
+        review_latency_ms=args.review_latency_ms,
+    )
     if args.audit:
-        print(json.dumps(convertor.audit(args.data, args.partition), ensure_ascii=False, indent=2))
+        rows = list(convertor.rows(args.data, args.partition))
+        report = convertor.audit(args.data, args.partition)
+        report["reward_audit"] = reward_audit(rows, weights=weights)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
         return
     counts = convertor.convert(args.data, args.partition, args.output)
     detail = " ".join(f"{route.value}={counts.get(route.value, 0)}" for route in ROUTE_ORDER)
     print(f"converted {sum(counts.values())} RouterBench rows: {detail}")
+
+
+def _parse_error_costs(values: Sequence[str]) -> dict[Route, float]:
+    """Parse repeated ``route=value`` flags into the typed reward mapping."""
+
+    costs: dict[Route, float] = {}
+    for item in values:
+        if "=" not in item:
+            raise ValueError(f"error cost must look like route=value, got {item!r}")
+        route_name, raw_value = item.split("=", 1)
+        try:
+            route = Route(route_name.strip().lower())
+            value = float(raw_value)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"invalid error cost {item!r}") from exc
+        if value < 0.0:
+            raise ValueError("error costs must be non-negative")
+        costs[route] = value
+    return costs
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -500,6 +605,14 @@ def build_parser() -> argparse.ArgumentParser:
     routerbench.add_argument("--output", type=Path, default=Path("data/external/routerbench/routerbench.jsonl"))
     routerbench.add_argument("--partition", default="all", help="all, train, val/dev, or test when the file carries a split field")
     routerbench.add_argument("--quality-threshold", type=float, default=0.8)
+    routerbench.add_argument("--quality-weight", type=float, default=1.0)
+    routerbench.add_argument("--cost-weight", type=float, default=0.05)
+    routerbench.add_argument("--latency-weight", type=float, default=0.0)
+    routerbench.add_argument("--cost-scale", type=float, default=1.0, help="cost units represented by one reward scale")
+    routerbench.add_argument("--latency-scale-ms", type=float, default=1_000.0, help="milliseconds represented by one reward scale")
+    routerbench.add_argument("--error-cost", action="append", default=[], metavar="ROUTE=VALUE", help="route-specific shortfall penalty; repeatable")
+    routerbench.add_argument("--review-cost", type=float, default=ROUTERBENCH_REVIEW_COST)
+    routerbench.add_argument("--review-latency-ms", type=float, default=ROUTERBENCH_REVIEW_LATENCY_MS)
     routerbench.add_argument("--audit", action="store_true", help="report derived labels without writing JSONL")
     routerbench.set_defaults(func=_command_routerbench)
     return parser

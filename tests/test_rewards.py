@@ -12,6 +12,8 @@ from minijev.rewards import (
     build_env,
     compute_reward,
     constant_route_check,
+    reward_audit,
+    reward_for_candidate,
 )
 from minijev.schema import Candidate, JevSample, Route
 
@@ -39,6 +41,36 @@ def test_latency_would_swamp_quality_if_it_were_on_by_default():
     review = compute_reward(quality=0.99, cost=2.0, latency_ms=3_600_000, weights=RewardWeights(latency=0.001))
     local = compute_reward(quality=0.70, cost=0.0, latency_ms=120, weights=RewardWeights(latency=0.001))
     assert review < local
+
+
+def test_reward_normalizes_cost_and_latency_scales_explicitly():
+    weights = RewardWeights(cost=0.5, latency=0.25, cost_scale=10.0, latency_scale_ms=1000.0)
+    assert compute_reward(quality=0.8, cost=10.0, latency_ms=1000.0, weights=weights) == pytest.approx(0.05)
+
+
+def test_offline_env_reuses_the_reward_configuration_recorded_with_rows():
+    weights = RewardWeights(cost=0.5, cost_scale=10.0)
+    sample = JevSample(
+        query="configured",
+        confidence=1.0,
+        route=Route.LOCAL,
+        candidates=(Candidate(route=Route.LOCAL, reward=0.3, quality=0.8, cost=10.0),),
+        metadata={"reward_weights": weights.to_dict()},
+    )
+    env = OfflineRouterEnv([sample])
+    reward, _ = env.step("configured", Route.LOCAL)
+    assert reward == pytest.approx(0.3)
+
+
+def test_unavailable_candidate_is_not_rewarded_but_unknown_availability_is_audited():
+    unavailable = Candidate(route=Route.LOCAL, reward=0.0, quality=1.0, available=False)
+    unknown = Candidate(route=Route.RAG, reward=0.0, quality=1.0, available=None)
+    assert reward_for_candidate(unavailable) == float("-inf")
+    assert reward_for_candidate(unknown) == pytest.approx(1.0)
+    audit = reward_audit([JevSample(query="q", confidence=1.0, route=Route.RAG, candidates=(unavailable, unknown))])
+    assert audit["unavailable_counts"]["local"] == 1
+    assert audit["availability_missing_counts"]["rag"] == 1
+    assert audit["best_route_counts"]["rag"] == 1
 
 
 def _counterfactual_sample() -> JevSample:

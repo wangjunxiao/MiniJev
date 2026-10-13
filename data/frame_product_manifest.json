@@ -4,7 +4,8 @@
     "target_per_route": 320,
     "benchmark_fraction": 0.25,
     "variants": 3,
-    "seed": 17
+    "seed": 17,
+    "naming": "explicit"
   },
   "audit": {
     "frames": 1280,

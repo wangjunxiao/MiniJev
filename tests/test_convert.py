@@ -153,3 +153,50 @@ def test_routerbench_audit_reports_the_derivation_policy():
     assert audit["review_rows_with_synthesized_candidate"] == 1
     assert audit["with_counterfactuals"] == 4
     assert audit["route_counts"] == {"local": 1, "rag": 1, "cloud": 1, "review": 1}
+
+
+def test_routerbench_availability_blocks_an_otherwise_qualifying_model(tmp_path):
+    from minijev.convert import RouterBenchConvertor
+
+    source = tmp_path / "availability.jsonl"
+    source.write_text(
+        json.dumps(
+            {
+                "prompt": "service is down",
+                "models": {
+                    "small": {"score": 0.99, "cost": 0.01, "available": False},
+                    "large": {"score": 0.60, "cost": 0.10, "available": True},
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    row = next(RouterBenchConvertor(quality_threshold=0.8).rows(source))
+    assert row.route is Route.REVIEW
+    small = next(candidate for candidate in row.candidates if candidate.model == "small")
+    assert small.available is False
+    assert small.eligible is False
+    assert row.metadata["reward_version"] == "utility-v2"
+
+
+def test_routerbench_records_utility_reward_and_error_cost_configuration(tmp_path):
+    from minijev.convert import RouterBenchConvertor
+    from minijev.rewards import RewardWeights, reward_for_candidate
+
+    source = tmp_path / "reward.jsonl"
+    source.write_text(
+        json.dumps(
+            {
+                "prompt": "choose a model",
+                "models": {"small": {"score": 0.9, "cost": 2.0, "latency_ms": 500, "available": True}},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    weights = RewardWeights(cost=0.1, latency=0.2, cost_scale=2.0, latency_scale_ms=1000.0, error_costs={Route.LOCAL: 3.0})
+    row = next(RouterBenchConvertor(quality_threshold=0.8, reward_weights=weights).rows(source))
+    candidate = row.candidates[0]
+    assert candidate.reward == pytest.approx(reward_for_candidate(candidate, weights=weights))
+    assert row.metadata["reward_weights"]["error_costs"]["local"] == 3.0

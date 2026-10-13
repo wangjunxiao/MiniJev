@@ -446,12 +446,12 @@ inventing samples for it.
 
 ## RouterBench integration
 
-RouterBench records model quality and cost; it does not contain MiniJev's four
+RouterBench records model quality, cost, latency and (when exported) availability; it does not contain MiniJev's four
 route labels. The converter uses an explicit policy: sort models by cost, choose
 the cheapest model whose quality reaches `--quality-threshold`, map the first,
 second and later qualifying tiers to `local`, `rag` and `cloud`, and map a row
 with no qualifying model to `review`. Every observed model is retained as a
-`candidates` counterfactual with quality, cost and latency. These labels are a
+`candidates` counterfactual with model, quality, cost, latency and availability. These labels are a
 cost/quality experiment, not human ground truth, so the threshold is reported
 with every run.
 
@@ -462,6 +462,11 @@ $env:PYTHONPATH = "D:\jev\tinygrad;D:\jev\MiniJev"
 python -m minijev.convert routerbench --data path\routerbench.jsonl --audit --quality-threshold 0.8
 python -m minijev.convert routerbench --data path\routerbench.jsonl `
   --output data\external\routerbench\routerbench_v1.jsonl --quality-threshold 0.8
+
+# Build and audit a utility table for offline contextual-bandit work.
+python -m minijev.convert routerbench --data path\routerbench.jsonl --audit `
+  --latency-weight 0.1 --latency-scale-ms 1000 `
+  --error-cost local=2 --error-cost cloud=5
 ```
 
 The converter accepts nested `models`/`model_scores` records and wide columns
@@ -470,13 +475,27 @@ refuses rows without a quality field rather than treating missing measurements
 as a failed model. The raw RouterBench files are not committed here.
 
 Eligibility is part of the counterfactual contract: a model below the quality bar
-is marked `eligible: false` and scores `-inf` in the reward table, and a row where
-nothing qualifies gets a **synthesised `review` candidate** carrying declared
-human-review cost/latency priors. Without these two rules a reward-maximising
-policy would route the medical-diagnosis row to the biggest model rather than to a
-human — the exact failure a `review` route exists to prevent. The priors live in
-`minijev/convert.py` and must be recalibrated against real review costs before any
-reward-trained policy is trusted.
+or explicitly unavailable is marked `eligible: false` and scores `-inf` in the
+reward table, and a row where nothing qualifies gets a **synthesised `review`
+candidate** carrying declared human-review cost/latency priors. Availability that
+was not exported remains `null` and is reported as missing; it is never silently
+treated as success or failure.
+
+`minijev.rewards` computes `utility-v2`:
+
+```text
+reward = quality_weight * quality
+       - cost_weight * cost / cost_scale
+       - latency_weight * latency_ms / latency_scale_ms
+       - error_cost(route) * (1 - quality)
+```
+
+The converter writes this reward into each candidate, records the full reward
+configuration in row metadata, and `OfflineRouterEnv` reuses that configuration
+unless the caller explicitly supplies another one. `--audit` adds finite-action,
+availability and best-route coverage before an offline bandit run is attempted.
+Human-review cost and latency remain declared priors in `minijev.convert.py`; they
+must be replaced by measured values before a reward-trained policy is trusted.
 
 ## Literary data supplement
 
@@ -517,7 +536,8 @@ the requested operation, so copyright and legal examples still need human review
 
 ## Reinforcement learning
 
-Not implemented, and deliberately so. The reserved interface is in place:
+Policy-gradient training is still deliberately postponed. The reward data layer is
+now usable and auditable, while the learning algorithm remains a later step:
 
 - `minijev.objectives.policy_gradient_loss` — implemented and tested, called by
   nothing on the training path.
@@ -528,10 +548,10 @@ Not implemented, and deliberately so. The reserved interface is in place:
 - `Decision.route_probs` and `Decision.log_prob()` — a policy-gradient step can
   sample a route and score it. The route head emits **logits, never a one-hot**.
 
-What is missing is not the algorithm, it is the reward. Every sample currently
-carries one `route` label, so there is no counterfactual: having chosen `local`,
-the data cannot say what `rag` would have scored. `offline RL is impossible without
-that table`.
+RouterBench conversion now supplies the counterfactual table. Purely supervised
+rows still carry only one `route` label, so they remain unsuitable for offline RL.
+Use converted rows only after checking `reward_audit` and replacing placeholder
+review and error-cost values with product measurements.
 
 `MockRouterEnv` exists to make the trap concrete. Its reward depends only on the
 route, never on the query, so any policy optimised against it collapses to the
@@ -542,8 +562,10 @@ the collapsing route, or `None` when the environment can distinguish queries.
 `RewardWeights.error_costs` adds the product-specific part of the utility:
 
 ```text
-reward = quality - cost_penalty - latency_penalty
-         - error_cost(route) * (1 - quality)
+reward = quality_weight * quality
+       - cost_weight * cost / cost_scale
+       - latency_weight * latency_ms / latency_scale_ms
+       - error_cost(route) * (1 - quality)
 ```
 
 It is empty by default because route error costs are not technical constants. Set it
