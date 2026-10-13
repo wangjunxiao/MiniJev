@@ -117,10 +117,18 @@ def test_implied_source_and_risk_follow_from_the_object_not_from_a_free_product(
 
 
 def test_the_implied_product_is_smaller_and_that_is_correct():
-    """A constrained product has fewer legal combinations; the reduction is information."""
-    explicit = generate_frame_product(ProductOptions(naming="explicit"))
-    implied = generate_frame_product(ProductOptions(naming="implied"))
-    assert len(implied.cases) < len(explicit.cases)
+    """A constrained product has fewer legal combinations; the reduction is information.
+
+    Measured with the quota lifted. The original version compared the *clamped* case counts and
+    passed only while the implied product happened to have the smaller candidate pool: once the
+    object table was expanded past the quota both products clamped to the same 1280 cases and the
+    assertion failed on a change that had nothing to do with the constraint. An unclamped quota
+    measures the property the test is named after.
+    """
+    unclamped = 100_000
+    explicit = generate_frame_product(ProductOptions(naming="explicit", target_per_route=unclamped))
+    implied = generate_frame_product(ProductOptions(naming="implied", target_per_route=unclamped))
+    assert len(implied.cases) < len(explicit.cases), "the legal-combination constraint is not binding"
     assert len(implied.cases) >= 100, "too small to estimate a collapse rate"
 
 

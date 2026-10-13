@@ -41,7 +41,7 @@ class ProductOptions:
     """
 
     target_per_route: int = 320
-    benchmark_fraction: float = 0.25
+    benchmark_fraction: float = 0.4
     variants: int = 3
     seed: int = 17
     naming: str = "explicit"
@@ -271,6 +271,57 @@ _OBJECT_CONTEXT: dict[str, tuple[Source, Risk, str, tuple[str, ...]]] = {
     "隐私条款": (Source.NONE, Risk.HIGH, "legal", ("read", "analyse", "judge")),
     "竞业协议": (Source.NONE, Risk.HIGH, "legal", ("read", "analyse", "judge")),
     "保险条款": (Source.NONE, Risk.HIGH, "financial", ("read", "analyse", "judge")),
+    # --- expansion for measurement resolution -------------------------------------------
+    # The implied benchmark's contrast-pair count was capped by whichever route had the fewest
+    # candidate frames, and that was `local` at 163, holding the whole corpus to a quota of 163
+    # and the benchmark to 68 pairs. At 68 pairs only a ~19-point collapse difference is
+    # resolvable (95% confidence, 80% power); reaching ~197 pairs would resolve 10 points. Since
+    # the quota is the minimum across routes, only adding objects to the *binding* routes helps,
+    # so these entries were chosen to lift `local`, `rag` and `review` together.
+    #
+    # Every object is paired only with verb groups a speaker would actually use on it: a free
+    # cross-product previously emitted `预测安装步骤` and `统计培训材料`, which is the same defect
+    # class as the marker leak one level up.
+    #
+    # --- given_text: lifts `local` ---
+    "会议纪要": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "list", "extract", "compose")),
+    "值班记录": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "list", "count", "verify")),
+    "客服对话": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "list", "translate", "analyse")),
+    "采购清单": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "list", "count", "verify")),
+    "巡检报告": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "count", "verify", "analyse")),
+    "用户反馈": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "list", "extract", "analyse")),
+    "培训签到": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "count", "list", "verify")),
+    "设备参数": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "list", "convert", "analyse")),
+    "测速结果": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "count", "verify", "analyse")),
+    "排产计划": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "list", "analyse", "compose")),
+    "库存盘点": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "count", "verify", "extract")),
+    "质量抽检": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "count", "verify", "analyse")),
+    "服务工单": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "list", "extract", "compose")),
+    "系统日志": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "list", "count", "analyse")),
+    "报销凭证": (Source.GIVEN_TEXT, Risk.LOW, "work", ("read", "list", "count", "verify")),
+    "教学大纲": (Source.GIVEN_TEXT, Risk.LOW, "study", ("read", "list", "extract", "compose")),
+    "翻译稿件": (Source.GIVEN_TEXT, Risk.LOW, "study", ("read", "list", "translate", "verify")),
+    "调研问卷": (Source.GIVEN_TEXT, Risk.LOW, "study", ("read", "count", "list", "analyse")),
+    # --- external: lifts `rag` ---
+    "操作指南": (Source.DOCUMENT, Risk.LOW, "work", ("read", "list", "translate", "analyse")),
+    "故障手册": (Source.DOCUMENT, Risk.LOW, "work", ("read", "list", "verify", "analyse")),
+    "采购制度": (Source.DOCUMENT, Risk.LOW, "work", ("read", "list", "extract", "compose")),
+    "安全规范": (Source.DOCUMENT, Risk.MEDIUM, "work", ("read", "list", "verify", "judge")),
+    "缴费记录": (Source.USER_DATA, Risk.LOW, "financial", ("read", "count", "verify", "extract")),
+    "里程记录": (Source.USER_DATA, Risk.LOW, "work", ("read", "count", "convert", "analyse")),
+    "借阅记录": (Source.USER_DATA, Risk.LOW, "study", ("read", "list", "count", "analyse")),
+    "售后记录": (Source.USER_DATA, Risk.LOW, "work", ("read", "list", "extract", "analyse")),
+    "资产台账": (Source.USER_DATA, Risk.LOW, "work", ("read", "list", "count", "verify")),
+    "路况信息": (Source.SERVICE, Risk.LOW, "life", ("read", "list", "analyse", "compose")),
+    "排队叫号": (Source.SERVICE, Risk.LOW, "life", ("read", "count", "verify", "analyse")),
+    "电价行情": (Source.SERVICE, Risk.LOW, "life", ("read", "convert", "analyse", "compose")),
+    # --- high stakes: lifts `review` ---
+    "手术方案": (Source.NONE, Risk.HIGH, "medical", ("analyse", "judge")),
+    "遗嘱草稿": (Source.NONE, Risk.HIGH, "legal", ("read", "analyse", "judge")),
+    "保单条款": (Source.NONE, Risk.HIGH, "financial", ("read", "analyse", "judge")),
+    "贷款方案": (Source.NONE, Risk.HIGH, "financial", ("analyse", "judge", "compose")),
+    "处方剂量": (Source.NONE, Risk.HIGH, "medical", ("read", "analyse", "judge")),
+    "数据出境方案": (Source.NONE, Risk.HIGH, "legal", ("analyse", "judge", "compose")),
 }
 """Objects whose meaning fixes the source and the stakes.
 
@@ -652,6 +703,89 @@ def _route_rule(frame: RouteFrame) -> str:
     return explain_frame(frame)
 
 
+_SHORTCUT_MARKERS: tuple[str, ...] = ("先", "再", "然后", "最后", "并", "接着")
+"""Surface cues a content-free classifier can read. Defined once so the audit and any future
+attempt to reduce the shortcut work from the same list."""
+
+
+def object_of(sample: JevSample) -> str | None:
+    """The held-out entity of a generated row, or `None` if it has no frame.
+
+    Rows store the frame, not a flat object field. A leakage check that read `metadata["object"]`
+    found nothing, compared two empty sets and reported success -- a check that cannot fail. The
+    accessor exists so the entity is read from the one place it actually lives.
+    """
+    frame = sample.metadata.get("frame")
+    return frame.get("object") if isinstance(frame, dict) else None
+
+
+def entity_overlap(train_rows: Sequence[JevSample], benchmark_rows: Sequence[JevSample]) -> dict[str, Any]:
+    """Objects and exact query texts appearing on both sides of the split.
+
+    Both must be zero: the design holds out objects so the benchmark asks about entities the
+    model never trained on, and identical text across the split would be a straight duplicate.
+    """
+    train_objects = {name for name in (object_of(row) for row in train_rows) if name}
+    benchmark_objects = {name for name in (object_of(row) for row in benchmark_rows) if name}
+    train_text = {row.query for row in train_rows}
+    benchmark_text = {row.query for row in benchmark_rows}
+    return {
+        "train_objects": len(train_objects),
+        "benchmark_objects": len(benchmark_objects),
+        "shared_objects": sorted(train_objects & benchmark_objects),
+        "shared_text": len(train_text & benchmark_text),
+    }
+
+
+def shortcut_audit(train_rows: Sequence[JevSample], benchmark_rows: Sequence[JevSample]) -> dict[str, Any]:
+    """How well a classifier does that never reads the *content* of the request.
+
+    Any benchmark is partly solvable by surface statistics, and the defence is to measure the
+    ceiling they impose and report it beside every result. An earlier generator was solved
+    outright by one such rule: a marker-only classifier reached **1.0000** on the explicit split
+    because `naming="explicit"` named the slots in the text. The benchmark looked perfect and
+    measured nothing.
+
+    Rules are fitted on the training split and scored on the benchmark, which is how someone
+    would actually build them. For the implied split the marker rule is not purely spurious -- a
+    clause like `然后核对依据` genuinely signals a multi-step request, which genuinely implies
+    `cloud` -- so it is a legitimate feature that happens to be cheap. What matters is the gap
+    over the majority baseline, and it is reported as `shortcut_gap_over_majority`.
+    """
+    if not train_rows or not benchmark_rows:
+        return {"rows": len(benchmark_rows)}
+
+    def fit_and_score(extract) -> float:
+        table: dict[tuple, Counter] = defaultdict(Counter)
+        for row in train_rows:
+            table[extract(row.query)][row.route.value] += 1
+        correct = 0
+        for row in benchmark_rows:
+            counts = table.get(extract(row.query))
+            guess = counts.most_common(1)[0][0] if counts else Route.LOCAL.value
+            correct += guess == row.route.value
+        return correct / len(benchmark_rows)
+
+    def marker_features(query: str) -> tuple:
+        return tuple(marker in query for marker in _SHORTCUT_MARKERS)
+
+    def coarse_features(query: str) -> tuple:
+        return (sum(marker in query for marker in _SHORTCUT_MARKERS), min(4, len(query) // 12))
+
+    prior = Counter(row.route.value for row in benchmark_rows).most_common(1)[0]
+    majority = prior[1] / len(benchmark_rows)
+    coarse = fit_and_score(coarse_features)
+    return {
+        "rows": len(benchmark_rows),
+        "majority_route": prior[0],
+        "majority_accuracy": majority,
+        "marker_only_accuracy": fit_and_score(marker_features),
+        "marker_plus_length_accuracy": coarse,
+        "chance_accuracy": 1.0 / len(ROUTE_ORDER),
+        "shortcut_gap_over_majority": coarse - majority,
+    }
+
+
 def product_audit(product_set: FrameProduct) -> dict[str, Any]:
     """Return counts that make product balance and split integrity inspectable."""
 
@@ -694,7 +828,15 @@ def write_product(output_dir: str | Path, options: ProductOptions | None = None)
     benchmark_rows = product_rows(product_set, split="benchmark")
     save_jsonl(train_rows, destination / "frame_product_train.jsonl")
     save_jsonl(benchmark_rows, destination / "frame_product_benchmark.jsonl")
-    manifest = {"version": "slot-product-v1", "options": vars(product_set.options), "audit": product_audit(product_set)}
+    manifest = {
+        "version": "slot-product-v1",
+        "options": vars(product_set.options),
+        "audit": product_audit(product_set),
+        # Written into the manifest so a leak or a shortcut shows up in the artifact itself,
+        # rather than in an ad-hoc script someone has to remember to run.
+        "entity_overlap": entity_overlap(train_rows, benchmark_rows),
+        "shortcut": shortcut_audit(train_rows, benchmark_rows),
+    }
     (destination / "frame_product_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     return manifest
 
