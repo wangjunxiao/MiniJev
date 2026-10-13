@@ -44,7 +44,13 @@ def test_the_route_head_accepts_the_operating_point():
     config = JevConfig(preference_dim=2)
     assert config.uses_preference is True
     model = TinyJev(config)
-    assert model.route_head.weight.shape == (len(config_route_order()), config.hidden_dim + 2)
+    # The preference meets the query *before* a nonlinearity, so the two interact rather than
+    # simply adding. A single `Linear([h; p])` only contributes `W_p . p`, a constant per
+    # route that is identical for every query, so it can shift a global bias and never
+    # genuinely re-route.
+    assert model.preference_projection.weight.shape == (config.hidden_dim, config.hidden_dim + 2)
+    assert model.route_head.weight.shape == (len(config_route_order()), config.hidden_dim)
+    assert TinyJev(JevConfig()).preference_projection is None
 
 
 def config_route_order():
@@ -119,21 +125,33 @@ def test_the_preference_width_travels_in_the_checkpoint(tmp_path):
     assert config.uses_preference is True
     # The rebuilt model must have a head the stored weights fit into.
     rebuilt = TinyJev(config)
-    assert rebuilt.route_head.weight.shape == (len(config_route_order()), config.hidden_dim + 2)
+    assert rebuilt.route_head.weight.shape == (len(config_route_order()), config.hidden_dim)
+    assert rebuilt.preference_projection.weight.shape == (config.hidden_dim, config.hidden_dim + 2)
 
 
-def test_a_conditioned_checkpoint_carries_the_extra_head_weights(tmp_path):
+def test_a_conditioned_checkpoint_carries_the_interaction_weights(tmp_path):
     path = tmp_path / "pref.safetensors"
     save_checkpoint(TinyJev(JevConfig(preference_dim=2)), path)
     keys = set(get_state_dict(TinyJev(load_checkpoint_config(path))))
+    assert "preference_projection.weight" in keys
     assert "route_head.weight" in keys
     plain_keys = set(get_state_dict(TinyJev(JevConfig())))
-    assert plain_keys == keys, "the conditioning must not add or remove parameters, only widen one"
+    assert keys - plain_keys == {"preference_projection.weight", "preference_projection.bias"}
 
 
-def test_the_extra_parameters_are_negligible():
-    """Guards the confound that bit the encoder comparison: conditioning must not be capacity."""
+def test_the_cost_of_conditioning_is_documented_and_not_negligible():
+    """Correction to an earlier claim.
+
+    A first version asserted conditioning cost under 1% of parameters, which was true of the
+    concatenation-only design and false once the interaction layer was added: letting the
+    preference modulate the query's features costs `hidden * (hidden + preference_dim)`.
+    At `hidden_dim=64, preference_dim=2` that is 4,224 parameters, about 20% -- large enough
+    that a conditioned model beating an unconditioned one must not be attributed to the
+    preference alone. The test records the real number instead of the flattering one.
+    """
+    config = JevConfig(preference_dim=2)
     plain = sum(t.numel() for t in get_state_dict(TinyJev(JevConfig())).values())
-    conditioned = sum(t.numel() for t in get_state_dict(TinyJev(JevConfig(preference_dim=2))).values())
-    assert conditioned - plain == 2 * len(config_route_order())
-    assert (conditioned - plain) / plain < 0.01
+    conditioned = sum(t.numel() for t in get_state_dict(TinyJev(config)).values())
+    expected = config.hidden_dim * (config.hidden_dim + config.preference_dim) + config.hidden_dim
+    assert conditioned - plain == expected
+    assert (conditioned - plain) / plain > 0.1, "the interaction layer is a real cost; say so"

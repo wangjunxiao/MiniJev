@@ -89,7 +89,18 @@ class TinyJev:
         self.transformer_projection = Linear(self.config.embed_dim, self.config.hidden_dim) if self.config.encoder_type == "transformer" else None
         # The head reads the operating point as well as the query when the config asks for
         # one, so the same weights serve a whole family of quality-versus-cost trade-offs.
-        self.route_head = Linear(self.config.hidden_dim + self.config.preference_dim, self.config.num_routes)
+        #
+        # The conditioning layer is not decoration. With a single `Linear([h; p])` the
+        # preference contributes `W_p . p` -- a constant per route, the same for every query --
+        # so the only thing it can do is shift a global bias and the argmax can never
+        # genuinely re-route. That is exactly the failure the first conditioned run showed:
+        # a constant local/cloud mix at every operating point, 19.8% agreement where 80% of
+        # queries should have switched to review. Meeting the preference *before* a
+        # nonlinearity is what lets it modulate the query's own features.
+        self.preference_projection = (
+            Linear(self.config.hidden_dim + self.config.preference_dim, self.config.hidden_dim) if self.config.uses_preference else None
+        )
+        self.route_head = Linear(self.config.hidden_dim, self.config.num_routes)
         # Auxiliary heads, one per deciding slot. They are small (a few hundred
         # parameters in total) and exist only to shape the shared representation during
         # training; the decision path never reads them.
@@ -136,7 +147,10 @@ class TinyJev:
             raise ValueError(f"preference must have shape [batch, {self.config.preference_dim}], got {tuple(preference.shape)}")
         if preference.shape[0] != shared.shape[0]:
             raise ValueError("preference must have one row per sample")
-        return shared.cat(preference, dim=1)
+        joint = shared.cat(preference, dim=1)
+        if self.preference_projection is None:
+            raise ValueError("preference conditioning requires the interaction layer")
+        return self.preference_projection(joint).relu()
 
 
 def config_path(checkpoint: str | Path) -> Path:

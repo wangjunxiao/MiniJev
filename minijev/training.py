@@ -13,7 +13,7 @@ import json
 import random
 import time
 from collections.abc import Iterator, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from tinygrad import Context, Tensor, dtypes
@@ -27,7 +27,8 @@ from .evaluation import classification_report, confidence_audit, majority_baseli
 from .frames import slot_targets
 from .model import TinyJev, load_checkpoint, save_checkpoint
 from .objectives import slot_loss, supervised_loss
-from .policies import Policy, RiskLadderPolicy
+from .policies import POLICIES, Policy, RiskLadderPolicy, policy_from_name
+from .rewards import Preference, RewardWeights, compute_reward
 from .schema import ROUTE_INDEX, JevSample, Route, RouteScores
 from .tokenizer import TURN_SEPARATOR_ID, ByteTokenizer
 
@@ -55,6 +56,19 @@ class TrainingConfig:
     use_context: bool = False
     aux_weight: float = 0.0
     """Weight on the deciding-slot auxiliary loss. 0 disables the heads entirely."""
+    preference_dim: int = 0
+    """Width of the operating-point input. 0 trains a single-trade-off policy."""
+    reference: Preference = field(default_factory=Preference)
+    """The operating point used for validation-time scoring of a conditioned model.
+
+    Model selection needs *one* number, so it is taken at a declared reference point rather
+    than averaged over the family: a policy that is excellent when cost dominates and useless
+    when quality dominates should not be selected on its average.
+    """
+
+    @property
+    def conditioned(self) -> bool:
+        return self.preference_dim > 0
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -99,14 +113,112 @@ def tensors(
     return input_ids, attention_mask, routes, weights
 
 
-def model_scores(model: TinyJev, tokenizer: ByteTokenizer, samples: Sequence[JevSample], batch_size: int) -> list[RouteScores]:
+def model_scores(
+    model: TinyJev,
+    tokenizer: ByteTokenizer,
+    samples: Sequence[JevSample],
+    batch_size: int,
+    preference: Tensor | None = None,
+) -> list[RouteScores]:
     scores: list[RouteScores] = []
     for batch in batches(samples, batch_size):
         input_ids, attention_mask, _, _ = tensors(tokenizer, batch)
-        outputs = model(input_ids, attention_mask)
+        outputs = model(input_ids, attention_mask, preference=_batch_preference(preference, len(batch)))
         logits = outputs.route_logits.numpy().tolist()
         scores.extend(RouteScores(route_logits=tuple(float(x) for x in row)) for row in logits)
     return scores
+
+
+def _batch_preference(preference: Tensor | None, rows: int) -> Tensor | None:
+    """Broadcast one operating point across a batch, or nothing when the model has none."""
+    if preference is None:
+        return None
+    values = preference.numpy().tolist()
+    if preference.ndim == 1:
+        values = [values]
+    if len(values) == 1 and rows > 1:
+        values = values * rows
+    return Tensor(values, dtype=dtypes.float32)
+
+
+def preference_vector(preference: "Preference", rows: int = 1) -> Tensor:
+    """The operating point as the model consumes it: the normalised simplex coordinates."""
+    quality, cost = preference.normalized
+    return Tensor([[quality, cost]] * rows, dtype=dtypes.float32)
+
+
+_PREFERENCE_GRID: tuple[float, ...] = (0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0)
+"""Cost shares the training schedule pins. See `sample_preferences` for why the ends need
+explicit coverage rather than a uniform draw."""
+
+
+def sample_preferences(count: int, rng: random.Random) -> Tensor:
+    """Sample operating points, deliberately over-covering the ends of the axis.
+
+    Uniform sampling sounds neutral and is not. The *behaviour* of the optimal policy changes
+    far more per unit of preference near the ends than in the middle: at cost share 0 the
+    optimum is the human review route for most queries, and it stops being so well before 0.25.
+    Sampling uniformly trains the middle densely and the ends thinly, and a policy that
+    reproduces the middle while ignoring the extremes is exactly what the first conditioned
+    run did -- a constant local/cloud mix at every operating point, with 19.8% agreement at
+    cost share 0 and 99.5% at 0.5.
+
+    Half the draws therefore come from a grid that pins both endpoints, and half stay uniform
+    so nothing between the grid points goes unvisited.
+    """
+    grid = _PREFERENCE_GRID
+    rows = []
+    for index in range(count):
+        if index % 2 == 0:
+            share = rng.choice(grid)
+        else:
+            share = rng.random()
+        rows.append([1.0 - share, share])
+    return Tensor(rows, dtype=dtypes.float32)
+
+
+def preference_targets(
+    samples: Sequence[JevSample],
+    preference: "Preference",
+    *,
+    weights: RewardWeights | None = None,
+) -> Tensor:
+    """The route that maximises reward **under this operating point**, per sample.
+
+    This is the part that makes conditioning mean anything. Training a fixed label while
+    sampling preferences gives one query contradictory targets -- same input text, different
+    operating point, same answer required -- and the model's cheapest solution is to ignore
+    the preference input entirely and learn the average. Recomputing the target from the
+    counterfactual table under the sampled preference removes that contradiction: the label
+    *is* a function of the operating point.
+
+    A sample with no counterfactuals keeps its own label, because there is no reward table to
+    re-derive it from.
+    """
+    effective = (weights or RewardWeights()).with_preference(preference)
+    indices: list[int] = []
+    for sample in samples:
+        if not sample.has_counterfactuals:
+            indices.append(ROUTE_INDEX[sample.route])
+            continue
+        scored = [
+            (
+                compute_reward(
+                    candidate.route,
+                    quality=candidate.quality,
+                    cost=candidate.cost,
+                    latency_ms=candidate.latency_ms,
+                    weights=effective,
+                    eligible=candidate.eligible,
+                    available=candidate.available,
+                ),
+                candidate.route,
+            )
+            for candidate in sample.candidates
+        ]
+        best = max(scored, key=lambda item: item[0])[1]
+        indices.append(ROUTE_INDEX[best])
+    return Tensor(indices, dtype=dtypes.int32)
 
 
 def evaluate_split(
@@ -117,8 +229,9 @@ def evaluate_split(
     policy: Policy,
     *,
     name: str,
+    preference: Tensor | None = None,
 ) -> dict[str, object]:
-    scores = model_scores(model, tokenizer, samples, batch_size)
+    scores = model_scores(model, tokenizer, samples, batch_size, preference=preference)
     actual = [sample.route for sample in samples]
     decisions = [policy.decide(value) for value in scores]
     predicted = [decision.route for decision in decisions]
@@ -150,6 +263,9 @@ def fit(
     random.seed(config.seed)
     Tensor.manual_seed(config.seed)
     policy = policy if policy is not None else RiskLadderPolicy()
+    # Scored at one declared operating point, not averaged over the family: a policy that is
+    # excellent when cost dominates and useless otherwise should not be selected on its mean.
+    reference = preference_vector(config.reference) if config.conditioned else None
 
     jev_config = JevConfig(
         embed_dim=config.embed_dim,
@@ -161,6 +277,7 @@ def fit(
         ffn_dim=config.ffn_dim,
         **({"vocab_size": TURN_SEPARATOR_ID + 1, "turn_sep_id": TURN_SEPARATOR_ID} if config.use_context else {}),
         aux_slots=config.aux_weight > 0.0,
+        preference_dim=config.preference_dim,
     )
     tokenizer = ByteTokenizer(jev_config)
     model = TinyJev(jev_config)
@@ -175,6 +292,9 @@ def fit(
     started = time.perf_counter()
 
     parameters = get_parameters(model)
+    # A separate stream so the operating point schedule does not shift when the data order
+    # changes; the two are independent sources of randomness.
+    preference_rng = random.Random(config.seed + 991)
     with Context(TRAINING=1):
         for epoch in range(1, config.epochs + 1):
             order = list(range(len(train_samples)))
@@ -182,7 +302,17 @@ def fit(
             loss_sum = 0.0
             for batch in batches(train_samples, config.batch_size, order):
                 input_ids, attention_mask, routes, weights = tensors(tokenizer, batch, weight_by_agreement=config.weight_by_agreement)
-                outputs = model(input_ids, attention_mask)
+                if config.conditioned:
+                    # One operating point for the whole batch, and the target re-derived from
+                    # it. Per-batch rather than per-row keeps the batch a coherent example of
+                    # one trade-off instead of a mixture the loss would average away.
+                    share = preference_rng.choice(_PREFERENCE_GRID) if preference_rng.random() < 0.5 else preference_rng.random()
+                    preference = Preference(quality=1.0 - share, cost=share)
+                    preference_tensor = preference_vector(preference, len(batch))
+                    routes = preference_targets(batch, preference)
+                else:
+                    preference_tensor = None
+                outputs = model(input_ids, attention_mask, preference=preference_tensor)
                 loss = supervised_loss(outputs, routes, sample_weights=weights, label_smoothing=config.label_smoothing)
                 if config.aux_weight > 0.0:
                     # The route is a function of the deciding slots, so predicting those
@@ -199,7 +329,7 @@ def fit(
                 optimizer.zero_grad()
                 loss_sum += loss.item() * len(batch)
 
-            validation = evaluate_split(model, tokenizer, validation_samples, config.batch_size, policy, name="validation")
+            validation = evaluate_split(model, tokenizer, validation_samples, config.batch_size, policy, name="validation", preference=reference)
             macro_f1 = float(validation["macro_f1"])
             improved = macro_f1 > best_macro_f1 + config.min_delta
             if improved:
@@ -297,6 +427,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="enable turn separators so each sample's preceding turns are encoded before its request",
     )
+    parser.add_argument(
+        "--policy",
+        choices=tuple(POLICIES),
+        default="risk_ladder",
+        help="decision rule used for model selection; argmax is the honest one when the operating point is an input",
+    )
+    parser.add_argument(
+        "--preference-dim",
+        type=int,
+        default=0,
+        help="width of the operating-point input; 2 trains one policy for a family of trade-offs",
+    )
     return parser
 
 
@@ -327,8 +469,11 @@ def main(argv: Sequence[str] | None = None) -> None:
         label_smoothing=args.label_smoothing,
         use_context=args.context,
         aux_weight=args.aux_weight,
+        preference_dim=args.preference_dim,
     )
-    policy = RiskLadderPolicy(measure=args.measure).scaled(args.caution)
+    policy = policy_from_name(args.policy, measure=args.measure)
+    if args.policy == "risk_ladder":
+        policy = policy.scaled(args.caution)
 
     print(f"train={len(train_samples)} validation={len(validation_samples)} test={len(test_samples)}")
     model, log = fit(train_samples, validation_samples, config, output=args.output, policy=policy)
