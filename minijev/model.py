@@ -87,7 +87,9 @@ class TinyJev:
         # Keep this projection as part of the model. Creating it in __call__ would
         # reset its weights on every batch and omit it from checkpoints.
         self.transformer_projection = Linear(self.config.embed_dim, self.config.hidden_dim) if self.config.encoder_type == "transformer" else None
-        self.route_head = Linear(self.config.hidden_dim, self.config.num_routes)
+        # The head reads the operating point as well as the query when the config asks for
+        # one, so the same weights serve a whole family of quality-versus-cost trade-offs.
+        self.route_head = Linear(self.config.hidden_dim + self.config.preference_dim, self.config.num_routes)
         # Auxiliary heads, one per deciding slot. They are small (a few hundred
         # parameters in total) and exist only to shape the shared representation during
         # training; the decision path never reads them.
@@ -95,7 +97,7 @@ class TinyJev:
             {slot: Linear(self.config.hidden_dim, len(vocabulary)) for slot, vocabulary in slot_vocabulary().items()} if self.config.aux_slots else {}
         )
 
-    def __call__(self, input_ids: Tensor, attention_mask: Tensor) -> JevOutputs:
+    def __call__(self, input_ids: Tensor, attention_mask: Tensor, preference: Tensor | None = None) -> JevOutputs:
         if input_ids.ndim != 2 or attention_mask.shape != input_ids.shape:
             raise ValueError("input_ids and attention_mask must both have shape [batch, sequence]")
 
@@ -111,8 +113,30 @@ class TinyJev:
         else:
             pooled = (hidden * mask).sum(axis=1) / mask.sum(axis=1).maximum(1.0)
             shared = self.encoder(pooled).relu()
+
+        head_input = self._condition(shared, preference)
         slot_logits = {slot: head(shared) for slot, head in self.slot_heads.items()} if self.slot_heads else None
-        return JevOutputs(route_logits=self.route_head(shared), slot_logits=slot_logits)
+        return JevOutputs(route_logits=self.route_head(head_input), slot_logits=slot_logits)
+
+    def _condition(self, shared: Tensor, preference: Tensor | None) -> Tensor:
+        """Attach the operating point to the pooled representation.
+
+        A config that declares a preference width but receives no vector is a wiring bug, not
+        a request for the default: silently substituting one would make an unconditional run
+        look conditional in the logs. The reverse is also refused, so a checkpoint cannot be
+        fed a preference it has no weights for.
+        """
+        if not self.config.uses_preference:
+            if preference is not None:
+                raise ValueError("this model was built without preference conditioning; rebuild it with preference_dim > 0")
+            return shared
+        if preference is None:
+            raise ValueError(f"this model expects a preference vector of width {self.config.preference_dim}")
+        if preference.ndim != 2 or preference.shape[1] != self.config.preference_dim:
+            raise ValueError(f"preference must have shape [batch, {self.config.preference_dim}], got {tuple(preference.shape)}")
+        if preference.shape[0] != shared.shape[0]:
+            raise ValueError("preference must have one row per sample")
+        return shared.cat(preference, dim=1)
 
 
 def config_path(checkpoint: str | Path) -> Path:

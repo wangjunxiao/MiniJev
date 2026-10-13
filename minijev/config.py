@@ -49,6 +49,17 @@ class JevConfig:
     answer identically once loaded; only training differs.
     """
 
+    preference_dim: int = 0
+    """Width of the operating-point vector fed to the route head, or 0 to disable.
+
+    0 keeps every earlier checkpoint loadable and every earlier decision unchanged. When
+    positive the head reads `hidden_dim + preference_dim` inputs, so the quality-versus-cost
+    trade-off becomes an *input* rather than a constant: one policy serves a family of
+    operating points and the operator moves along it without retraining. That is the
+    property that makes the router RL-*like* -- a contextual bandit against a stated
+    objective -- without freezing a reward and running policy gradients at it.
+    """
+
     def __post_init__(self) -> None:
         if self.encoder_type not in {"pooled", "transformer"}:
             raise ValueError("encoder_type must be 'pooled' or 'transformer'")
@@ -58,6 +69,13 @@ class JevConfig:
             raise ValueError("embed_dim must be divisible by num_heads")
         if self.turn_sep_id >= self.vocab_size:
             raise ValueError("turn_sep_id must be inside the embedding table; bump vocab_size")
+        if self.preference_dim < 0:
+            raise ValueError("preference_dim must not be negative")
+
+    @property
+    def uses_preference(self) -> bool:
+        """Whether the route head expects an operating-point vector."""
+        return self.preference_dim > 0
 
     @property
     def uses_context(self) -> bool:

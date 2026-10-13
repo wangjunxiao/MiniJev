@@ -59,12 +59,31 @@ decisions changed by the cap: 0/4
 **cap 在这 4 行上只动了算术，没动任何决策**——诚实地说，fixture 太小，无法证明 cap 的价值。
 它的理由来自文献与量纲分析（2.0 vs 0.1），不是来自这份数据。
 
-#### 下一步（仍未做）
+#### 偏好向量已成为模型输入（本轮完成）
 
-- **偏好向量还没成为模型输入。** BaRP 的关键是策略被偏好条件化；现在 `Preference` 只影响 reward
-  计算，模型本身仍是单点。要做成「一套策略、多个权衡点」必须把偏好喂进 encoder。
-- `policy_gradient_loss` 缺熵正则。
-- 没有 bandit-feedback 训练模式（采样动作、只观测该臂）。
+`JevConfig.preference_dim`（默认 0，旧 checkpoint 全部照常加载）。> 0 时 route head 读
+`hidden_dim + preference_dim`：
+
+```
+偏好差异 → logits 真的不同（不是装饰）
+route_head.weight shape = (4, 66) = hidden 64 + preference 2
+四种接线错误全部拒绝：普通模型喂偏好 / 偏好模型不给 / 宽度错 / 批量不匹配
+```
+
+**拒绝而不是静默兜底**是刻意的：静默替换成默认值会让一次**无条件**运行在日志里看起来是**有条件**的。
+
+`Preference.normalized` 与 `RewardWeights.with_preference()` 由测试断言**逐点相等**——打分侧和模型侧
+共用同一个定义，否则这个旋钮会说谎。参数量代价 **2×4 = 8 个**（<0.01%），不构成容量混淆。
+
+这是「像 RL 但不完全是 RL」的架构落点：**一套策略服务一族权衡点，推理时移动操作点而不重训**。
+
+#### 仍未做
+
+- **训练侧还没采样偏好。** BaRP 训练时在 1-simplex 上均匀采样 `w`；现在模型**能**接受偏好，
+  但 `training.py` 还没按批次采样并传入，所以还训不出「一套策略多权衡点」。
+- `policy_gradient_loss` 缺熵正则（BaRP 用 β=0.05）。
+- 没有 bandit-feedback 训练模式（采样动作、只观测该臂、其余掩码）。
+- 基准侧：`implied` 只有 68 组对比对，瓶颈是 `given_text` 对象数量（local 候选 163）。
 
 
 ### 当前轮（2026-10-13）：slot-product 基准被证明是「读标记」，已加 `implied` 模式
