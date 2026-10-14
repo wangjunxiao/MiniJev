@@ -63,6 +63,46 @@ def normalized_entropy(probabilities: Sequence[float]) -> float:
     return 1.0 - entropy(values) / math.log(options)
 
 
+CHANCE_CORRECTED_SOURCE = "typesafe/jev-1.13, recovered from 34 real API responses"
+"""Where this measure comes from, so it is not mistaken for a modelling preference.
+
+Jev publishes a `confidence` alongside `probabilities` on `choice` answers without stating how it
+is computed. It was recovered by probing the live API -- 34 responses across K = 2..8, including
+deliberately ambiguous states -- and testing candidate statistics against the reported value:
+
+    confidence = (max(p) - 1/K) / (1 - 1/K)
+
+Mean absolute error 0.0020 on the ambiguous probe, against 0.0620 for `top_probability` and
+0.0478 for `normalized_entropy`. The residual is explained by the API printing probabilities to
+two decimals while computing confidence from unrounded values: back-solving the winning
+probability from the reported confidence reproduces the displayed maximum in 10 of 10 ambiguous
+cases.
+
+It is the chance-corrected maximum probability -- a skill score mapping a uniform distribution to
+0 and certainty to 1 -- not the raw maximum and not an entropy.
+"""
+
+
+def chance_corrected_top(probabilities: Sequence[float]) -> float:
+    """`(max(p) - 1/K) / (1 - 1/K)`: the winning probability corrected for the option count.
+
+    This is what the Jev API reports. It is a skill score: how far above chance the winner sits,
+    as a fraction of the room available. So a *fixed* winning probability scores higher when there
+    are more options -- 0.7 among 2 options is 0.40, while 0.7 among 4 is 0.60 -- because being
+    that sure with more alternatives to choose from is the stronger read. `top_probability` cannot
+    express that at all, since 0.7 is 0.7 whatever the option count.
+
+    (An earlier version of this docstring had the example backwards, claiming 0.7 was a strong
+    read among 2 and a weak one among 10. Computing it rather than reasoning about it settled the
+    direction; the tests assert the computed values.)
+    """
+    values = _clean(probabilities)
+    options = len(values)
+    if options < 2:
+        return 1.0
+    return (max(values) - 1.0 / options) / (1.0 - 1.0 / options)
+
+
 def margin(probabilities: Sequence[float]) -> float:
     """Top minus runner-up. Distinguishes a clear winner from a near-tie.
 
@@ -85,10 +125,19 @@ def effective_options(probabilities: Sequence[float]) -> float:
 CONFIDENCE_MEASURES: dict[str, Callable[[Sequence[float]], float]] = {
     "normalized_entropy": normalized_entropy,
     "top_probability": top_probability,
+    "chance_corrected_top": chance_corrected_top,
     "margin": margin,
 }
 
 DEFAULT_MEASURE = "normalized_entropy"
+"""The default has *not* been switched to `chance_corrected_top`, deliberately.
+
+It is the measure the Jev contract reports, so a MiniJev that means to be API-compatible should
+use it. But switching the default would silently invalidate the calibration experiments recorded
+in PLAN.md, which measured ECE and gating skill under `normalized_entropy`, and would leave the
+risk ladder's gate values -- tuned against that statistic -- meaning something else. That is a
+change to make deliberately and re-measure, not to slip in beside a formula discovery.
+"""
 
 
 def confidence_from(probabilities: Sequence[float], measure: str = DEFAULT_MEASURE) -> float:
@@ -100,7 +149,7 @@ def confidence_from(probabilities: Sequence[float], measure: str = DEFAULT_MEASU
     return min(max(function(probabilities), 0.0), 1.0)
 
 
-DIFFERENTIABLE_MEASURES: tuple[str, ...] = ("normalized_entropy", "top_probability")
+DIFFERENTIABLE_MEASURES: tuple[str, ...] = ("normalized_entropy", "top_probability", "chance_corrected_top")
 """The measures that can be written as a smooth function of the logits.
 
 Calibration-aware training has to penalise the confidence that will actually be *reported*.
@@ -108,6 +157,9 @@ Penalising `top_probability` while the decision path reads `normalized_entropy` 
 number nobody uses, which is the calibration equivalent of reporting the wrong metric. `margin`
 is excluded because a max-minus-runner-up is only piecewise smooth; it is still available for
 measurement through `confidence_from`.
+
+`chance_corrected_top` is included because it is the measure the Jev contract actually reports, so
+calibrating it is what makes MiniJev's confidence mean the same thing as the API's.
 """
 
 
@@ -124,11 +176,14 @@ def differentiable_confidence(logits: "object", measure: str = DEFAULT_MEASURE) 
     if measure not in DIFFERENTIABLE_MEASURES:
         raise KeyError(f"{measure!r} is not differentiable; expected one of {sorted(DIFFERENTIABLE_MEASURES)}")
     probabilities = logits.softmax(axis=-1)  # type: ignore[attr-defined]
+    options = logits.shape[-1]  # type: ignore[attr-defined]
     if measure == "top_probability":
         return probabilities.max(axis=-1)
-    options = logits.shape[-1]  # type: ignore[attr-defined]
     if options < 2:
         return probabilities.max(axis=-1)
+    if measure == "chance_corrected_top":
+        top = probabilities.max(axis=-1)
+        return (top - 1.0 / options) / (1.0 - 1.0 / options)
     entropy = -(probabilities * (probabilities + SMALLEST_PROBABILITY).log()).sum(axis=-1)
     return 1.0 - entropy / _math.log(options)
 

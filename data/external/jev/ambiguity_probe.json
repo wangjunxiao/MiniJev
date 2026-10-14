@@ -1,0 +1,173 @@
+{
+  "note": "real responses from typesafe/jev-1.13, chosen to produce ambiguous distributions",
+  "records": [
+    {
+      "k": 3,
+      "state": "It is not clear whether this is a bug or expected behaviour.",
+      "probabilities": {
+        "bug": 0.0,
+        "expected": 0.0,
+        "unclear": 1.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "implied_p_max": 1.0,
+      "rounds_to_displayed_max": true,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "tac5ded1-1b59-4745-b02c-e6d6d0d6d809",
+      "cost": 2.8056e-05
+    },
+    {
+      "k": 4,
+      "state": "The customer is unhappy but has not said what specifically went wrong.",
+      "probabilities": {
+        "product": 0.0,
+        "service": 0.02,
+        "staff": 0.0,
+        "other": 0.98
+      },
+      "reported_confidence": 0.97,
+      "chance_corrected_top": 0.9733333333333333,
+      "implied_p_max": 0.9775,
+      "rounds_to_displayed_max": true,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "tadc5adc-0f13-4deb-9e38-fb94ea659e0f",
+      "cost": 2.9064e-05
+    },
+    {
+      "k": 4,
+      "state": "Could be a billing question or could be a technical one about the invoice export.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 0.0,
+        "both": 0.99,
+        "neither": 0.01
+      },
+      "reported_confidence": 0.99,
+      "chance_corrected_top": 0.9866666666666667,
+      "implied_p_max": 0.9924999999999999,
+      "rounds_to_displayed_max": true,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "tac2bf87-229c-4950-a841-f6c69849956a",
+      "cost": 2.94e-05
+    },
+    {
+      "k": 3,
+      "state": "Might be urgent, might be routine; it is a Tuesday afternoon and one user is affected.",
+      "probabilities": {
+        "routine": 0.07,
+        "urgent": 0.0,
+        "unclear": 0.93
+      },
+      "reported_confidence": 0.89,
+      "chance_corrected_top": 0.8949999999999999,
+      "implied_p_max": 0.9266666666666667,
+      "rounds_to_displayed_max": true,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "tacfdeef-0066-4d2e-8f5a-dd81f62b36f8",
+      "cost": 2.8644e-05
+    },
+    {
+      "k": 4,
+      "state": "Someone asked about the feature and also mentioned a small rendering problem.",
+      "probabilities": {
+        "feature_q": 0.3,
+        "bug_report": 0.09,
+        "feedback": 0.37,
+        "other": 0.24
+      },
+      "reported_confidence": 0.16,
+      "chance_corrected_top": 0.16,
+      "implied_p_max": 0.37,
+      "rounds_to_displayed_max": true,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "tac7ac9c-535b-495a-afa2-15a9dfd447e1",
+      "cost": 2.94e-05
+    },
+    {
+      "k": 4,
+      "state": "The request is short and refers to something mentioned earlier but not repeated here.",
+      "probabilities": {
+        "needs_context": 1.0,
+        "answerable": 0.0,
+        "unclear": 0.0,
+        "other": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "implied_p_max": 1.0,
+      "rounds_to_displayed_max": true,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta944e4e-0e21-4c10-a476-b96c8edf7924",
+      "cost": 2.982e-05
+    },
+    {
+      "k": 4,
+      "state": "Two of the four options fit about equally well and I cannot tell which is intended.",
+      "probabilities": {
+        "a": 0.17,
+        "b": 0.2,
+        "c": 0.36,
+        "d": 0.27
+      },
+      "reported_confidence": 0.15,
+      "chance_corrected_top": 0.14666666666666664,
+      "implied_p_max": 0.3625,
+      "rounds_to_displayed_max": true,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "taa8002c-a9bc-4293-99ad-a48b98c3b59b",
+      "cost": 2.94e-05
+    },
+    {
+      "k": 5,
+      "state": "This could belong to several categories and no signal clearly favours one.",
+      "probabilities": {
+        "one": 0.42,
+        "two": 0.02,
+        "three": 0.29,
+        "four": 0.06,
+        "five": 0.21
+      },
+      "reported_confidence": 0.27,
+      "chance_corrected_top": 0.27499999999999997,
+      "implied_p_max": 0.41600000000000004,
+      "rounds_to_displayed_max": true,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "tac06072-e0f9-42ba-b22e-d439b679ae98",
+      "cost": 3.024e-05
+    },
+    {
+      "k": 3,
+      "state": "The text is ambiguous between a complaint and a request for information.",
+      "probabilities": {
+        "complaint": 0.0,
+        "question": 0.0,
+        "unclear": 1.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "implied_p_max": 1.0,
+      "rounds_to_displayed_max": true,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta403a34-3ecb-4713-949b-cc7b8d3d1b6e",
+      "cost": 2.814e-05
+    },
+    {
+      "k": 4,
+      "state": "Hard to say whether this is about payments or about account access.",
+      "probabilities": {
+        "payments": 0.0,
+        "account": 0.0,
+        "either": 1.0,
+        "neither": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "implied_p_max": 1.0,
+      "rounds_to_displayed_max": true,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta00a27b-97b9-425c-ac2a-810123577c0e",
+      "cost": 2.9148e-05
+    }
+  ]
+}

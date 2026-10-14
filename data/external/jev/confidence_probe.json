@@ -1,0 +1,381 @@
+{
+  "note": "real responses from typesafe/jev-1.13; used to recover the confidence formula",
+  "records": [
+    {
+      "k": 2,
+      "state": "The customer says the invoice total is wrong and refuses to pay until it is corrected.",
+      "probabilities": {
+        "billing": 1.0,
+        "technical": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "taa34727-6798-44e4-9cac-c7d4ad5a8846",
+      "cost": 2.8728e-05
+    },
+    {
+      "k": 2,
+      "state": "The user asks whether the export button also works on mobile, or only on desktop.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 1.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "tac4d92d-2a9f-4be5-93ff-7cda674f35f6",
+      "cost": 2.8728e-05
+    },
+    {
+      "k": 2,
+      "state": "Something happened with the account, not sure what, please look into it.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 1.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta730ba0-f401-4429-8f07-6c3868e4cea6",
+      "cost": 2.856e-05
+    },
+    {
+      "k": 2,
+      "state": "URGENT: production database is down, all customers affected, revenue stopped.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 1.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta1ab807-f876-4901-bfe3-17ca577d8d82",
+      "cost": 2.856e-05
+    },
+    {
+      "k": 3,
+      "state": "The customer says the invoice total is wrong and refuses to pay until it is corrected.",
+      "probabilities": {
+        "billing": 1.0,
+        "technical": 0.0,
+        "account": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "taa10efd-dcec-4fcf-b721-6531f3d9d3cd",
+      "cost": 3.024e-05
+    },
+    {
+      "k": 3,
+      "state": "The user asks whether the export button also works on mobile, or only on desktop.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 1.0,
+        "account": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "tafff83a-7de1-40ad-8f84-f2c1bff5c7fb",
+      "cost": 3.024e-05
+    },
+    {
+      "k": 3,
+      "state": "Something happened with the account, not sure what, please look into it.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 0.0,
+        "account": 1.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta7f2fb7-c081-4da1-bfd3-6ec5e71aa988",
+      "cost": 3.0072e-05
+    },
+    {
+      "k": 3,
+      "state": "URGENT: production database is down, all customers affected, revenue stopped.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 1.0,
+        "account": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta4ad4dc-5831-4d23-a307-535ab37779da",
+      "cost": 3.0072e-05
+    },
+    {
+      "k": 4,
+      "state": "The customer says the invoice total is wrong and refuses to pay until it is corrected.",
+      "probabilities": {
+        "billing": 1.0,
+        "technical": 0.0,
+        "account": 0.0,
+        "shipping": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta612c71-77a5-4192-9ab1-d062aa1004a8",
+      "cost": 3.1584e-05
+    },
+    {
+      "k": 4,
+      "state": "The user asks whether the export button also works on mobile, or only on desktop.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 1.0,
+        "account": 0.0,
+        "shipping": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta980fc5-55a5-412f-a6e2-cf4e04887b07",
+      "cost": 3.1584e-05
+    },
+    {
+      "k": 4,
+      "state": "Something happened with the account, not sure what, please look into it.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 0.0,
+        "account": 1.0,
+        "shipping": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta6ff53c-39c3-4357-9ddf-8a8dbecd5b03",
+      "cost": 3.1416e-05
+    },
+    {
+      "k": 4,
+      "state": "URGENT: production database is down, all customers affected, revenue stopped.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 1.0,
+        "account": 0.0,
+        "shipping": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta2f3562-e44e-4149-ab5e-fa4a022c1ad6",
+      "cost": 3.1416e-05
+    },
+    {
+      "k": 5,
+      "state": "The customer says the invoice total is wrong and refuses to pay until it is corrected.",
+      "probabilities": {
+        "billing": 1.0,
+        "technical": 0.0,
+        "account": 0.0,
+        "shipping": 0.0,
+        "product_info": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "taeca9f4-3ce0-4a46-8662-9f58c3fc4c11",
+      "cost": 3.318e-05
+    },
+    {
+      "k": 5,
+      "state": "The user asks whether the export button also works on mobile, or only on desktop.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 0.04,
+        "account": 0.0,
+        "shipping": 0.0,
+        "product_info": 0.96
+      },
+      "reported_confidence": 0.95,
+      "chance_corrected_top": 0.95,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta528ba3-fd61-47d1-aebe-f8a4e4d08884",
+      "cost": 3.318e-05
+    },
+    {
+      "k": 5,
+      "state": "Something happened with the account, not sure what, please look into it.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 0.0,
+        "account": 1.0,
+        "shipping": 0.0,
+        "product_info": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "taa10b72-cd30-410f-be2a-5c04d39c7864",
+      "cost": 3.3012e-05
+    },
+    {
+      "k": 5,
+      "state": "URGENT: production database is down, all customers affected, revenue stopped.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 1.0,
+        "account": 0.0,
+        "shipping": 0.0,
+        "product_info": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta0abb53-46c1-4d28-9c7b-eb8b8d3adc56",
+      "cost": 3.3012e-05
+    },
+    {
+      "k": 6,
+      "state": "The customer says the invoice total is wrong and refuses to pay until it is corrected.",
+      "probabilities": {
+        "billing": 1.0,
+        "technical": 0.0,
+        "account": 0.0,
+        "shipping": 0.0,
+        "product_info": 0.0,
+        "complaint": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta00a346-45ab-4e5a-9855-a6d15762317b",
+      "cost": 3.4944e-05
+    },
+    {
+      "k": 6,
+      "state": "The user asks whether the export button also works on mobile, or only on desktop.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 0.04,
+        "account": 0.0,
+        "shipping": 0.0,
+        "product_info": 0.96,
+        "complaint": 0.0
+      },
+      "reported_confidence": 0.95,
+      "chance_corrected_top": 0.952,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta47543a-9153-40f0-b812-1f2fcafc7b4e",
+      "cost": 3.4944e-05
+    },
+    {
+      "k": 6,
+      "state": "Something happened with the account, not sure what, please look into it.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 0.0,
+        "account": 1.0,
+        "shipping": 0.0,
+        "product_info": 0.0,
+        "complaint": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta55a177-06ea-4d09-9881-33ddf0b42fde",
+      "cost": 3.4776e-05
+    },
+    {
+      "k": 6,
+      "state": "URGENT: production database is down, all customers affected, revenue stopped.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 1.0,
+        "account": 0.0,
+        "shipping": 0.0,
+        "product_info": 0.0,
+        "complaint": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta4c7d10-a27c-4c86-bb7c-1a7963406d8c",
+      "cost": 3.4776e-05
+    },
+    {
+      "k": 8,
+      "state": "The customer says the invoice total is wrong and refuses to pay until it is corrected.",
+      "probabilities": {
+        "billing": 1.0,
+        "technical": 0.0,
+        "account": 0.0,
+        "shipping": 0.0,
+        "product_info": 0.0,
+        "complaint": 0.0,
+        "other": 0.0,
+        "urgent": 0.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "tafbda0f-9d75-4036-95c3-e4f618c4aa9b",
+      "cost": 3.8136e-05
+    },
+    {
+      "k": 8,
+      "state": "The user asks whether the export button also works on mobile, or only on desktop.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 0.03,
+        "account": 0.0,
+        "shipping": 0.0,
+        "product_info": 0.97,
+        "complaint": 0.0,
+        "other": 0.0,
+        "urgent": 0.0
+      },
+      "reported_confidence": 0.97,
+      "chance_corrected_top": 0.9657142857142856,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "tab5cdd5-aff3-4a5c-bddd-de150c920b98",
+      "cost": 3.8136e-05
+    },
+    {
+      "k": 8,
+      "state": "Something happened with the account, not sure what, please look into it.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 0.0,
+        "account": 0.99,
+        "shipping": 0.0,
+        "product_info": 0.0,
+        "complaint": 0.0,
+        "other": 0.01,
+        "urgent": 0.0
+      },
+      "reported_confidence": 0.99,
+      "chance_corrected_top": 0.9885714285714285,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "ta2cfd35-f8b8-4838-9193-c9a40c6bc158",
+      "cost": 3.7968e-05
+    },
+    {
+      "k": 8,
+      "state": "URGENT: production database is down, all customers affected, revenue stopped.",
+      "probabilities": {
+        "billing": 0.0,
+        "technical": 0.0,
+        "account": 0.0,
+        "shipping": 0.0,
+        "product_info": 0.0,
+        "complaint": 0.0,
+        "other": 0.0,
+        "urgent": 1.0
+      },
+      "reported_confidence": 1.0,
+      "chance_corrected_top": 1.0,
+      "model": "typesafe/jev-1.13-20260917",
+      "task_id": "taa64ae3-9275-4c23-9a82-2f188eaa7494",
+      "cost": 3.7968e-05
+    }
+  ]
+}
