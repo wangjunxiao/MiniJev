@@ -46,6 +46,11 @@ from typing import Any
 from .schema import ROUTE_ORDER, RouteScores
 
 DEFAULT_ENDPOINT = "https://api.defapi.org/api/v1/decisions"
+"""Verified by probe: an unauthenticated POST to this path returns 401, so it exists and needs a
+key. The defapi.org product page advertises `POST /v1/systemone` instead; that path returns 404,
+as do `/v1/decisions` and `/api/v1/systemone`. Trust the OpenAPI document, not the marketing copy.
+"""
+
 DEFAULT_MODEL = "typesafe/jev-1.13"
 API_KEY_ENV = "JEV_API_KEY"
 
