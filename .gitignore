@@ -19,6 +19,7 @@ models/history/
 # because a new generator would otherwise start committing megabytes by default.
 data/*.jsonl
 !data/hard_benchmark.jsonl
+!data/jev_presence_probe.jsonl
 data/domains/
 data/implied/
 # Split directories are derived too, and `data/*.jsonl` does not reach inside them.

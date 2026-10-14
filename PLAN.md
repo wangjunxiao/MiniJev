@@ -8,6 +8,33 @@
 
 ## 状态（2026-09-29 → 10-11 持续更新）
 
+### 当前轮（10-14）：reward readiness + Jev presence prompt 测试
+
+这一阶段没有直接启动 bandit/RL，而是先把“reward 是否真的存在”变成可失败的门：
+
+- 新增 `minijev.reward_data`，逐 candidate 审计 `quality/cost/latency/availability` 的证据种类；
+- RouterBench converter 为每个已导出字段记录 benchmark provenance，缺字段保持 missing；
+- human review 的 quality/cost/latency/availability 明确记录为 declared prior，不冒充测量；
+- 从 603-frame Jev disagreement 生成 38 条人工误路由 review queue，覆盖 10 个
+  `required>chosen` confusion cell；每格至少 2 条、2 名独立 reviewer 才能进入 harm matrix；
+- `harm_score`、金额、延迟三个量纲分开，框架不自动把主观 0–4 分折算成美元。
+
+首轮 readiness 结果是预期的 **fail closed**：RouterBench fixture 有 4 行 / 12 candidates，quality/cost
+有 11 个 benchmark 实测，但 latency 仅 2 个、availability 0 个；review 的 1 个候选仍是 declared。
+因此 `offline_counterfactual_ready=false`、`production_reward_ready=false`。38 条误路由记录尚未评审，
+所以 `harm_matrix_ready=false`、`production_cost_ready=false`。报告分别在
+`models/reward_action_readiness_v1.json` 与 `models/misroute_readiness_v1.json`。
+
+Jev 侧新增 `minijev-route-v2-presence`：明确“材料已在 state 中，只需读/抽取 = local；材料不在
+state 中，必须 fetch = rag”。`data/jev_presence_probe.jsonl` 锁定 6 组相同 query 的 absent/supplied
+最小对，并新增 prompt-version-aware resume 与 paired `compare-prompts`。由于当前环境没有轮换后的
+`JEV_API_KEY`，本轮只完成协议、密封探针和离线测试，没有复用已泄露 key，也没有伪造线上结果。
+
+presence A/B 的判据在看结果前锁定：v2 必须让 supplied 半边至少 **5/6 → local**，同时保持 absent
+半边至少 **5/6 → rag**；`net_fixes` 必须为正且 regressions ≤1。这个 12-row probe 只验证机制，
+不能单独支持总体性能结论。误路由矩阵则要求全部 **12 个非对角 cell** 达标；当前 Jev 错误只覆盖
+10 格，缺失格也明确列在 readiness report 中，不能因“未发生”就被当成零成本。
+
 ### 当前轮（10-14）：Jev 批量标注与对照管线已接上
 
 单次 API client 已经升级成可复现实验工具 `minijev.jev_benchmark`：

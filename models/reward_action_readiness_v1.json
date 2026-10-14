@@ -1,0 +1,146 @@
+{
+  "rows": 4,
+  "candidates": 12,
+  "rows_with_at_least_two_actions": 4,
+  "rows_with_all_four_routes": 1,
+  "evidence_by_field": {
+    "quality": {
+      "production": 0,
+      "benchmark": 11,
+      "human_elicited": 0,
+      "declared": 1,
+      "synthetic": 0,
+      "missing": 0
+    },
+    "cost": {
+      "production": 0,
+      "benchmark": 11,
+      "human_elicited": 0,
+      "declared": 1,
+      "synthetic": 0,
+      "missing": 0
+    },
+    "latency_ms": {
+      "production": 0,
+      "benchmark": 2,
+      "human_elicited": 0,
+      "declared": 1,
+      "synthetic": 0,
+      "missing": 9
+    },
+    "available": {
+      "production": 0,
+      "benchmark": 0,
+      "human_elicited": 0,
+      "declared": 1,
+      "synthetic": 0,
+      "missing": 11
+    }
+  },
+  "all_fields_have_provenance": false,
+  "offline_counterfactual_ready": false,
+  "production_reward_ready": false,
+  "missing_examples": [
+    {
+      "sample_id": "rb-local",
+      "candidate": "small",
+      "field": "available"
+    },
+    {
+      "sample_id": "rb-local",
+      "candidate": "large",
+      "field": "available"
+    },
+    {
+      "sample_id": "rb-rag",
+      "candidate": "small",
+      "field": "latency_ms"
+    },
+    {
+      "sample_id": "rb-rag",
+      "candidate": "small",
+      "field": "available"
+    },
+    {
+      "sample_id": "rb-rag",
+      "candidate": "medium",
+      "field": "latency_ms"
+    },
+    {
+      "sample_id": "rb-rag",
+      "candidate": "medium",
+      "field": "available"
+    },
+    {
+      "sample_id": "rb-rag",
+      "candidate": "large",
+      "field": "latency_ms"
+    },
+    {
+      "sample_id": "rb-rag",
+      "candidate": "large",
+      "field": "available"
+    },
+    {
+      "sample_id": "rb-cloud",
+      "candidate": "small",
+      "field": "latency_ms"
+    },
+    {
+      "sample_id": "rb-cloud",
+      "candidate": "small",
+      "field": "available"
+    },
+    {
+      "sample_id": "rb-cloud",
+      "candidate": "medium",
+      "field": "latency_ms"
+    },
+    {
+      "sample_id": "rb-cloud",
+      "candidate": "medium",
+      "field": "available"
+    },
+    {
+      "sample_id": "rb-cloud",
+      "candidate": "large",
+      "field": "latency_ms"
+    },
+    {
+      "sample_id": "rb-cloud",
+      "candidate": "large",
+      "field": "available"
+    },
+    {
+      "sample_id": "rb-review",
+      "candidate": "small",
+      "field": "latency_ms"
+    },
+    {
+      "sample_id": "rb-review",
+      "candidate": "small",
+      "field": "available"
+    },
+    {
+      "sample_id": "rb-review",
+      "candidate": "medium",
+      "field": "latency_ms"
+    },
+    {
+      "sample_id": "rb-review",
+      "candidate": "medium",
+      "field": "available"
+    },
+    {
+      "sample_id": "rb-review",
+      "candidate": "large",
+      "field": "latency_ms"
+    },
+    {
+      "sample_id": "rb-review",
+      "candidate": "large",
+      "field": "available"
+    }
+  ],
+  "note": "Benchmark evidence supports offline experiments; only production evidence supports deployment reward claims."
+}

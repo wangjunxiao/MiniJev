@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import pytest
 
 from minijev.jev_api import DecisionResponse, JevApiError
 from minijev.jev_benchmark import (
     PROMPT_VERSION,
+    RETRIEVAL_PROMPT_VERSION,
     annotate_one,
     api_state,
     benchmark_question,
+    compare_prompt_records,
     evaluate_records,
     load_records,
     load_result_records,
@@ -73,6 +76,15 @@ def test_the_versioned_question_encodes_the_route_precedence():
     assert "high-stakes" in question.instructions
 
 
+def test_v2_makes_supplied_material_local_and_absent_material_rag():
+    question = benchmark_question(RETRIEVAL_PROMPT_VERSION)
+    assert "already present" in question.criteria["local"]
+    assert "absent" in question.criteria["rag"]
+    assert "supplied query and context" in question.instructions
+    with pytest.raises(ValueError, match="unknown prompt version"):
+        benchmark_question("future-version")
+
+
 def test_only_query_and_context_cross_the_remote_boundary():
     sample = _sample("secret-label", "查合同", Route.REVIEW, context=("tenant=acme",))
     assert api_state(sample) == {"query": "查合同", "context": ["tenant=acme"]}
@@ -129,6 +141,60 @@ def test_batch_output_is_append_only_and_resume_skips_successes(tmp_path):
     assert [call["state"]["query"] for call in second.calls] == ["second"]
     with pytest.raises(FileExistsError):
         run_annotations(samples, second, output)
+
+
+def test_resume_does_not_reuse_a_response_from_another_prompt_version(tmp_path):
+    sample = _sample("a", "first", Route.LOCAL)
+    output = tmp_path / "ab.jsonl"
+    v1 = FakeClient([_response(Route.RAG, {"local": 0, "rag": 1, "cloud": 0, "review": 0}, 1.0)])
+    run_annotations([sample], v1, output, prompt_version=PROMPT_VERSION)
+    v2 = FakeClient([_response(Route.LOCAL, {"local": 1, "rag": 0, "cloud": 0, "review": 0}, 1.0)])
+    records = run_annotations([sample], v2, output, resume=True, prompt_version=RETRIEVAL_PROMPT_VERSION)
+    assert len(records) == 2
+    assert records[-1]["prompt_version"] == RETRIEVAL_PROMPT_VERSION
+    assert v2.calls[0]["session_id"] == f"minijev:{RETRIEVAL_PROMPT_VERSION}"
+
+
+def test_prompt_comparison_is_paired_and_counts_fixes_and_regressions():
+    samples = [_sample("a", "has material", Route.LOCAL), _sample("b", "needs fetch", Route.RAG)]
+    baseline = [
+        annotate_one(samples[0], FakeClient([_response(Route.RAG, {"local": 0, "rag": 1, "cloud": 0, "review": 0}, 1.0)])),
+        annotate_one(samples[1], FakeClient([_response(Route.RAG, {"local": 0, "rag": 1, "cloud": 0, "review": 0}, 1.0)])),
+    ]
+    candidate = [
+        annotate_one(
+            samples[0],
+            FakeClient([_response(Route.LOCAL, {"local": 1, "rag": 0, "cloud": 0, "review": 0}, 1.0)]),
+            prompt_version=RETRIEVAL_PROMPT_VERSION,
+        ),
+        annotate_one(
+            samples[1],
+            FakeClient([_response(Route.LOCAL, {"local": 1, "rag": 0, "cloud": 0, "review": 0}, 1.0)]),
+            prompt_version=RETRIEVAL_PROMPT_VERSION,
+        ),
+    ]
+    report = compare_prompt_records(baseline, candidate, samples)
+    assert report["paired_rows"] == 2
+    assert report["fixed_errors"] == 1
+    assert report["regressions"] == 1
+    assert report["net_fixes"] == 0
+    assert report["prediction_transitions"] == {"rag>local": 2}
+
+
+def test_presence_probe_is_six_matched_absent_supplied_pairs():
+    from minijev.data import load_jsonl
+
+    path = Path(__file__).resolve().parents[1] / "data" / "jev_presence_probe.jsonl"
+    rows = load_jsonl(path)
+    groups: dict[str, list[JevSample]] = {}
+    for row in rows:
+        groups.setdefault(str(row.metadata["semantic_group_id"]), []).append(row)
+    assert len(groups) == 6
+    for pair in groups.values():
+        assert len(pair) == 2
+        assert len({row.query for row in pair}) == 1
+        assert {row.route for row in pair} == {Route.LOCAL, Route.RAG}
+        assert {bool(row.context) for row in pair} == {False, True}
 
 
 def test_report_contains_classification_calibration_cost_and_review_queue():

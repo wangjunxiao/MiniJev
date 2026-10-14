@@ -17,6 +17,7 @@ import hashlib
 import json
 import math
 import time
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,6 +31,8 @@ from .jev_api import DEFAULT_ENDPOINT, DEFAULT_MODEL, DecisionResponse, JevApiCl
 from .schema import ROUTE_ORDER, Decision, JevSample, Route
 
 PROMPT_VERSION = "minijev-route-v1"
+RETRIEVAL_PROMPT_VERSION = "minijev-route-v2-presence"
+PROMPT_VERSIONS = (PROMPT_VERSION, RETRIEVAL_PROMPT_VERSION)
 RESULT_SCHEMA_VERSION = "jev-benchmark-v1"
 
 ROUTE_CRITERIA: Mapping[str, str] = {
@@ -43,6 +46,20 @@ ROUTE_INSTRUCTIONS = (
     "Route the user's request to exactly one MiniJev handler. Apply precedence: choose review for high-stakes or materially "
     "underspecified requests; otherwise choose cloud for multi-step construction/reasoning; otherwise choose rag when external "
     "information must be retrieved; otherwise choose local. Judge only the supplied state."
+)
+
+PRESENCE_AWARE_ROUTE_CRITERIA: Mapping[str, str] = {
+    "local": "All information needed to answer is already present in the supplied state, or the request is a self-contained calculation. Do not fetch anything.",
+    "rag": "Information required to answer is absent from the supplied state and must be fetched from a document, user record, database, service, or the web.",
+    "cloud": "The supplied state is sufficient, but the request needs multi-step construction, synthesis, planning, or reasoning beyond one lookup.",
+    "review": "A person must decide because the request is high-stakes, materially ambiguous, or missing information that cannot be safely resolved by retrieval.",
+}
+
+PRESENCE_AWARE_INSTRUCTIONS = (
+    "Route the request to exactly one MiniJev handler. Treat the supplied query and context as material already available to the handler: "
+    "reading, extracting, counting, or summarising that supplied material is local, not rag. Choose rag only when required information is "
+    "absent and must be fetched. Apply precedence after that distinction: review for high-stakes or irreducibly underspecified requests; "
+    "otherwise cloud for multi-step construction/reasoning; otherwise rag for an external fetch; otherwise local."
 )
 
 
@@ -61,9 +78,13 @@ class DecisionClient(Protocol):
     ) -> DecisionResponse: ...
 
 
-def benchmark_question() -> Question:
+def benchmark_question(prompt_version: str = PROMPT_VERSION) -> Question:
     """The versioned four-way question used for all comparable benchmark runs."""
-    return Question(type="choice", instructions=ROUTE_INSTRUCTIONS, criteria=dict(ROUTE_CRITERIA))
+    if prompt_version == PROMPT_VERSION:
+        return Question(type="choice", instructions=ROUTE_INSTRUCTIONS, criteria=dict(ROUTE_CRITERIA))
+    if prompt_version == RETRIEVAL_PROMPT_VERSION:
+        return Question(type="choice", instructions=PRESENCE_AWARE_INSTRUCTIONS, criteria=dict(PRESENCE_AWARE_ROUTE_CRITERIA))
+    raise ValueError(f"unknown prompt version {prompt_version!r}; expected one of {PROMPT_VERSIONS}")
 
 
 def sample_key(sample: JevSample) -> str:
@@ -105,10 +126,12 @@ def annotate_one(
     retry_backoff_s: float = 1.0,
     sleep: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.perf_counter,
+    prompt_version: str = PROMPT_VERSION,
 ) -> dict[str, Any]:
     """Call Jev once (with bounded retries) and build an auditable sidecar record."""
     if max_retries < 0:
         raise ValueError("max_retries must be non-negative")
+    question = benchmark_question(prompt_version)
     key = sample_key(sample)
     started = clock()
     attempts = 0
@@ -119,8 +142,8 @@ def annotate_one(
         try:
             response = client.decide(
                 api_state(sample),
-                {"route": benchmark_question()},
-                session_id=f"minijev:{PROMPT_VERSION}",
+                {"route": question},
+                session_id=f"minijev:{prompt_version}",
             )
             break
         except JevApiError as error:
@@ -132,7 +155,7 @@ def annotate_one(
     latency_ms = (clock() - started) * 1_000.0
     base: dict[str, Any] = {
         "schema_version": RESULT_SCHEMA_VERSION,
-        "prompt_version": PROMPT_VERSION,
+        "prompt_version": prompt_version,
         "sample_id": key,
         "query": sample.query,
         "context": list(sample.context),
@@ -271,13 +294,16 @@ def run_annotations(
     max_retries: int = 3,
     retry_backoff_s: float = 1.0,
     sleep: Callable[[float], None] = time.sleep,
+    prompt_version: str = PROMPT_VERSION,
 ) -> list[dict[str, Any]]:
     """Append responses as they arrive, so interruption loses at most one call."""
     destination = Path(output)
     if destination.exists() and not resume:
         raise FileExistsError(f"{destination} already exists; pass --resume or choose a new artifact")
     existing = load_records(destination) if destination.exists() else []
-    completed = {str(record.get("sample_id")) for record in existing if record.get("status") == "ok"}
+    completed = {
+        str(record.get("sample_id")) for record in existing if record.get("status") == "ok" and record.get("prompt_version") == prompt_version
+    }
     keys = [sample_key(sample) for sample in samples]
     if len(keys) != len(set(keys)):
         raise ValueError("benchmark sample ids are not unique")
@@ -297,6 +323,7 @@ def run_annotations(
                 max_retries=max_retries,
                 retry_backoff_s=retry_backoff_s,
                 sleep=sleep,
+                prompt_version=prompt_version,
             )
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
             handle.flush()
@@ -401,6 +428,7 @@ def evaluate_records(records: Sequence[Mapping[str, Any]], samples: Sequence[Jev
         "model_versions": sorted({str(record.get("model", "")) for record in aligned_records if record.get("model")}),
         "note": "These are Jev annotation-call measurements, not the serving cost/latency of MiniJev route actions.",
     }
+    report["prompt_versions"] = sorted({str(record.get("prompt_version", "unknown")) for record in aligned_records})
     report["disagreements"] = [
         {
             "sample_id": sample_key(sample),
@@ -416,6 +444,60 @@ def evaluate_records(records: Sequence[Mapping[str, Any]], samples: Sequence[Jev
     ]
     report["boundary"] = evaluate_boundary(_RecordedRouter(aligned_records), aligned_samples) if aligned_samples else None
     return report
+
+
+def compare_prompt_records(
+    baseline_records: Sequence[Mapping[str, Any]],
+    candidate_records: Sequence[Mapping[str, Any]],
+    samples: Sequence[JevSample],
+) -> dict[str, Any]:
+    """Paired prompt comparison; incomplete rows are excluded from both arms."""
+    baseline = _latest_records(baseline_records)
+    candidate = _latest_records(candidate_records)
+    paired: list[tuple[JevSample, Mapping[str, Any], Mapping[str, Any]]] = []
+    for sample in samples:
+        key = sample_key(sample)
+        left = baseline.get(key)
+        right = candidate.get(key)
+        if left is None or right is None or left.get("status") != "ok" or right.get("status") != "ok":
+            continue
+        for record in (left, right):
+            if record.get("query") != sample.query or record.get("ground_truth") != sample.route.value:
+                raise ValueError(f"result {key!r} does not match the benchmark row")
+        paired.append((sample, left, right))
+
+    baseline_predictions = [Route(str(left["jev_prediction"])) for _, left, _ in paired]
+    candidate_predictions = [Route(str(right["jev_prediction"])) for _, _, right in paired]
+    actual = [sample.route for sample, _, _ in paired]
+    transitions: Counter[str] = Counter(f"{left.value}>{right.value}" for left, right in zip(baseline_predictions, candidate_predictions))
+    fixes = sum(truth is not left and truth is right for truth, left, right in zip(actual, baseline_predictions, candidate_predictions))
+    regressions = sum(truth is left and truth is not right for truth, left, right in zip(actual, baseline_predictions, candidate_predictions))
+    disagreements = [
+        {
+            "sample_id": sample_key(sample),
+            "query": sample.query,
+            "ground_truth": sample.route.value,
+            "baseline_prediction": left.value,
+            "candidate_prediction": right.value,
+            "baseline_confidence": left_record["jev_confidence"],
+            "candidate_confidence": right_record["jev_confidence"],
+        }
+        for (sample, left_record, right_record), left, right in zip(paired, baseline_predictions, candidate_predictions)
+        if left is not right
+    ]
+    return {
+        "paired_rows": len(paired),
+        "benchmark_rows": len(samples),
+        "baseline_prompt_versions": sorted({str(left.get("prompt_version", "unknown")) for _, left, _ in paired}),
+        "candidate_prompt_versions": sorted({str(right.get("prompt_version", "unknown")) for _, _, right in paired}),
+        "baseline": classification_report(actual, baseline_predictions, name="baseline_prompt"),
+        "candidate": classification_report(actual, candidate_predictions, name="candidate_prompt"),
+        "fixed_errors": fixes,
+        "regressions": regressions,
+        "net_fixes": fixes - regressions,
+        "prediction_transitions": dict(sorted(transitions.items())),
+        "changed_predictions": disagreements,
+    }
 
 
 def compare_minijev(report: dict[str, Any], records: Sequence[Mapping[str, Any]], samples: Sequence[JevSample], checkpoint: Path) -> None:
@@ -485,12 +567,18 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--endpoint", default=DEFAULT_ENDPOINT)
     run.add_argument("--model", default=DEFAULT_MODEL)
     run.add_argument("--timeout", type=float, default=30.0)
+    run.add_argument("--prompt-version", choices=PROMPT_VERSIONS, default=RETRIEVAL_PROMPT_VERSION)
 
     audit = subparsers.add_parser("report", help="rebuild metrics from a saved sidecar without network access")
     audit.add_argument("--data", type=Path, required=True)
     audit.add_argument("--results", type=Path, required=True)
     audit.add_argument("--report-out", type=Path)
     audit.add_argument("--checkpoint", type=Path)
+    compare = subparsers.add_parser("compare-prompts", help="paired comparison of two saved prompt runs")
+    compare.add_argument("--data", type=Path, required=True)
+    compare.add_argument("--baseline-results", type=Path, required=True)
+    compare.add_argument("--candidate-results", type=Path, required=True)
+    compare.add_argument("--report-out", type=Path, required=True)
     return parser
 
 
@@ -508,9 +596,23 @@ def main(argv: Sequence[str] | None = None) -> None:
             interval_ms=args.interval_ms,
             max_retries=args.max_retries,
             retry_backoff_s=args.retry_backoff_s,
+            prompt_version=args.prompt_version,
         )
-    else:
+    elif args.command == "report":
         records = load_result_records(args.results, samples)
+    else:
+        comparison = compare_prompt_records(
+            load_result_records(args.baseline_results, samples),
+            load_result_records(args.candidate_results, samples),
+            samples,
+        )
+        args.report_out.parent.mkdir(parents=True, exist_ok=True)
+        args.report_out.write_text(json.dumps(comparison, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(
+            f"paired={comparison['paired_rows']} baseline_acc={comparison['baseline']['accuracy']:.4f} "
+            f"candidate_acc={comparison['candidate']['accuracy']:.4f} net_fixes={comparison['net_fixes']}; wrote {args.report_out}"
+        )
+        return
     report = evaluate_records(records, samples)
     if args.checkpoint:
         compare_minijev(report, records, samples, args.checkpoint)

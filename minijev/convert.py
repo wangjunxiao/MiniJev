@@ -16,7 +16,7 @@ import json
 import re
 from abc import ABC, abstractmethod
 from collections import Counter
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -255,6 +255,25 @@ class RouterBenchConvertor(Convertor):
                 "model_costs": {name: cells.get("cost") for name, cells in ranked},
                 "model_latencies": {name: cells.get("latency_ms") for name, cells in ranked},
                 "model_availability": {name: cells.get("available") for name, cells in ranked},
+                "candidate_evidence": {
+                    **{name: self._candidate_evidence(cells) for name, cells in ranked},
+                    **(
+                        {
+                            "human_review": {
+                                "quality": {"kind": "declared", "source": "quality_threshold prior"},
+                                "cost": {"kind": "declared", "source": "ROUTERBENCH_REVIEW_COST prior"},
+                                "latency_ms": {"kind": "declared", "source": "ROUTERBENCH_REVIEW_LATENCY_MS prior"},
+                                "available": {"kind": "declared", "source": "terminal review assumption"},
+                            }
+                        }
+                        if route is Route.REVIEW
+                        else {}
+                    ),
+                },
+                "propensity_evidence": {
+                    "kind": "declared",
+                    "source": "uniform placeholder, not the RouterBench behavior policy",
+                },
             }
             for key in ("eval_name", "source", "category", "task", "split"):
                 if row.get(key) is not None:
@@ -308,6 +327,23 @@ class RouterBenchConvertor(Convertor):
             available=available,
             eligible=eligible,
         )
+
+    @staticmethod
+    def _candidate_evidence(cells: Mapping[str, object]) -> dict[str, dict[str, str]]:
+        """Record which RouterBench fields were actually exported.
+
+        A missing field gets no evidence entry and therefore fails the reward-data
+        audit.  In particular, absence of an availability column is not proof that
+        the model was available.
+        """
+        source_fields = {
+            "quality": "RouterBench score/performance field",
+            "cost": "RouterBench total_cost/cost field",
+            "latency_ms": "RouterBench latency field",
+            "available": "RouterBench availability field",
+        }
+        cell_fields = {"quality": "score", "cost": "cost", "latency_ms": "latency_ms", "available": "available"}
+        return {field: {"kind": "benchmark", "source": source_fields[field]} for field, cell in cell_fields.items() if cells.get(cell) is not None}
 
     def audit(self, path: str | Path, partition: str = "all") -> dict[str, object]:
         rows = list(self.rows(path, partition))

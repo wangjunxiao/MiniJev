@@ -557,6 +557,69 @@ Two boundaries are deliberate:
   the serving utility of `local`/`rag`/`cloud`/`review`, so they cannot replace the
   RouterBench counterfactual reward table.
 
+### Presence-aware Jev prompt A/B
+
+The first live run exposed an ontology ambiguity: Jev read “a document” as `rag`
+even when the document was already supplied in `context`. Live runs now default to
+`minijev-route-v2-presence`, whose criteria make two cases mutually exclusive:
+
+- supplied material that only needs reading/extraction is `local`;
+- required information absent from state and needing a fetch is `rag`.
+
+`data/jev_presence_probe.jsonl` pre-registers six matched pairs: each pair has the
+same query, with the required material absent (`rag`) or supplied (`local`). Run
+both prompts to separate a prompt-definition fix from model quality:
+
+```powershell
+python -m minijev.jev_benchmark run --data data\jev_presence_probe.jsonl `
+  --prompt-version minijev-route-v1 `
+  --output data\external\jev\runs\presence_v1.jsonl
+python -m minijev.jev_benchmark run --data data\jev_presence_probe.jsonl `
+  --prompt-version minijev-route-v2-presence `
+  --output data\external\jev\runs\presence_v2.jsonl
+python -m minijev.jev_benchmark compare-prompts `
+  --data data\jev_presence_probe.jsonl `
+  --baseline-results data\external\jev\runs\presence_v1.jsonl `
+  --candidate-results data\external\jev\runs\presence_v2.jsonl `
+  --report-out models\jev_presence_prompt_ab.json
+```
+
+Resume keys include the prompt version, so an old-prompt response cannot quietly
+stand in for the new arm. A live A/B still requires a rotated `JEV_API_KEY`; the
+key previously pasted into chat must not be reused.
+
+## Reward evidence readiness
+
+`minijev.reward_data` audits where reward inputs came from before a bandit or RL
+run can use them. Each candidate can carry provenance for `quality`, `cost`,
+`latency_ms`, and `available`, with evidence classified as production, benchmark,
+human-elicited, declared, or synthetic. Missing provenance fails the gate; a
+declared review prior is never reported as a measurement.
+
+```powershell
+python -m minijev.reward_data action-audit `
+  --data data\reward\routerbench_fixture_evidence.jsonl `
+  --output models\reward_action_readiness_v1.json
+
+python -m minijev.reward_data misroute-queue `
+  --report models\jev_sealed_pooled_comparison.json `
+  --output data\reward\misroute_review_v1.jsonl --per-cell 5
+
+# After two independent reviewers fill harm_score/reviewer_id/rationale:
+python -m minijev.reward_data misroute-audit `
+  --data data\reward\misroute_review_v1.jsonl `
+  --output models\misroute_readiness_v1.json
+```
+
+The queue is balanced by `required_route > chosen_route` confusion cell and
+prioritises high-confidence errors. A cell is ready only after at least two
+judgments from two independent reviewers. Ordinal harm (0–4), direct money, and
+delay remain separate units: the framework never invents a conversion between
+them. Human-elicited harm supports a risk policy; only observed production money
+can support a production-cost claim. The global matrix gate requires all 12
+off-diagonal route pairs; an error type absent from one experiment is missing
+evidence, not zero harm.
+
 ## Literary data supplement
 
 `python -m minijev.literary` creates a deterministic domain supplement under
@@ -596,8 +659,9 @@ the requested operation, so copyright and legal examples still need human review
 
 ## Reinforcement learning
 
-Policy-gradient training is still deliberately postponed. The reward data layer is
-now usable and auditable, while the learning algorithm remains a later step:
+Policy-gradient training is still deliberately postponed. The reward plumbing is
+usable and auditable, but the current readiness reports deliberately fail because
+production action evidence and reviewed misroute costs are still missing:
 
 - `minijev.objectives.policy_gradient_loss` — implemented and tested, called by
   nothing on the training path.
@@ -678,8 +742,11 @@ MiniJev/
 │   ├── policies.py     # per-route risk ladder, flat baseline, caution sweep
 │   ├── objectives.py   # supervised loss + the reserved RL loss
 │   ├── rewards.py      # reward function, environments, collapse check
+│   ├── reward_data.py  # reward provenance + human misroute evidence gates
 │   ├── data.py         # load / save / group-aware split / describe
 │   ├── convert.py      # external sources -> schema, with rubrics
+│   ├── jev_api.py      # typed Jev Decisions API client
+│   ├── jev_benchmark.py # resumable Jev runs, prompt A/B, paired reports
 │   ├── synthetic.py    # deterministic generators (every template is a group)
 │   ├── frames.py       # structured boundary frames; the route is derived, not stored
 │   ├── boundary.py     # boundary-benchmark scoring, incl. contrast-pair collapse rate

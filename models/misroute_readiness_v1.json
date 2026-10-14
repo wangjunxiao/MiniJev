@@ -1,0 +1,117 @@
+{
+  "rows": 38,
+  "pending": 38,
+  "reviewed": 0,
+  "excluded": 0,
+  "observed_confusion_cells": 10,
+  "required_confusion_cells": 12,
+  "missing_confusion_cells": [
+    "rag>review",
+    "review>local"
+  ],
+  "ready_cells": 0,
+  "minimum_per_cell": 2,
+  "minimum_reviewers": 2,
+  "observed_cells_ready": false,
+  "harm_matrix_ready": false,
+  "production_cost_ready": false,
+  "matrix": {
+    "cloud>local": {
+      "judgments": 0,
+      "reviewers": 0,
+      "mean_harm_score": null,
+      "mean_direct_cost": null,
+      "mean_delay_minutes": null,
+      "ready": false
+    },
+    "cloud>rag": {
+      "judgments": 0,
+      "reviewers": 0,
+      "mean_harm_score": null,
+      "mean_direct_cost": null,
+      "mean_delay_minutes": null,
+      "ready": false
+    },
+    "cloud>review": {
+      "judgments": 0,
+      "reviewers": 0,
+      "mean_harm_score": null,
+      "mean_direct_cost": null,
+      "mean_delay_minutes": null,
+      "ready": false
+    },
+    "local>cloud": {
+      "judgments": 0,
+      "reviewers": 0,
+      "mean_harm_score": null,
+      "mean_direct_cost": null,
+      "mean_delay_minutes": null,
+      "ready": false
+    },
+    "local>rag": {
+      "judgments": 0,
+      "reviewers": 0,
+      "mean_harm_score": null,
+      "mean_direct_cost": null,
+      "mean_delay_minutes": null,
+      "ready": false
+    },
+    "local>review": {
+      "judgments": 0,
+      "reviewers": 0,
+      "mean_harm_score": null,
+      "mean_direct_cost": null,
+      "mean_delay_minutes": null,
+      "ready": false
+    },
+    "rag>cloud": {
+      "judgments": 0,
+      "reviewers": 0,
+      "mean_harm_score": null,
+      "mean_direct_cost": null,
+      "mean_delay_minutes": null,
+      "ready": false
+    },
+    "rag>local": {
+      "judgments": 0,
+      "reviewers": 0,
+      "mean_harm_score": null,
+      "mean_direct_cost": null,
+      "mean_delay_minutes": null,
+      "ready": false
+    },
+    "rag>review": {
+      "judgments": 0,
+      "reviewers": 0,
+      "mean_harm_score": null,
+      "mean_direct_cost": null,
+      "mean_delay_minutes": null,
+      "ready": false
+    },
+    "review>cloud": {
+      "judgments": 0,
+      "reviewers": 0,
+      "mean_harm_score": null,
+      "mean_direct_cost": null,
+      "mean_delay_minutes": null,
+      "ready": false
+    },
+    "review>local": {
+      "judgments": 0,
+      "reviewers": 0,
+      "mean_harm_score": null,
+      "mean_direct_cost": null,
+      "mean_delay_minutes": null,
+      "ready": false
+    },
+    "review>rag": {
+      "judgments": 0,
+      "reviewers": 0,
+      "mean_harm_score": null,
+      "mean_direct_cost": null,
+      "mean_delay_minutes": null,
+      "ready": false
+    }
+  },
+  "warning": "Ordinal harm, money, and delay are separate units; no conversion is implied."
+}
