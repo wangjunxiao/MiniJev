@@ -15,6 +15,7 @@ from minijev.jev_benchmark import (
     benchmark_question,
     evaluate_records,
     load_records,
+    load_result_records,
     run_annotations,
     sample_key,
 )
@@ -176,3 +177,36 @@ def test_result_cannot_be_joined_to_a_changed_answer_key():
     changed = _sample("a", "first", Route.REVIEW)
     with pytest.raises(ValueError, match="does not match"):
         evaluate_records([record], [changed])
+
+
+def test_the_pre_runner_live_artifact_can_be_reused_without_another_api_call(tmp_path):
+    sample = JevSample(
+        id="frame_1_0",
+        query="查合同",
+        route=Route.RAG,
+        confidence=0.8,
+        metadata={"frame_id": "f1", "semantic_group_id": "frame:f1"},
+    )
+    legacy = {
+        "records": [
+            {
+                "frame_id": "f1",
+                "query": "查合同",
+                "ours_route": "rag",
+                "jev_route": "rag",
+                "jev_route_probabilities": {"local": 0.0, "rag": 1.0, "cloud": 0.0, "review": 0.0},
+                "jev_route_confidence": 1.0,
+                "cost": 0.00004,
+                "model": "typesafe/jev-1.13-test",
+            }
+        ]
+    }
+    path = tmp_path / "legacy.json"
+    path.write_text(json.dumps(legacy, ensure_ascii=False, indent=2), encoding="utf-8")
+    records = load_result_records(path, [sample])
+    assert records[0]["sample_id"] == "frame_1_0"
+    assert records[0]["agreement_01"] == 1
+    assert records[0]["legacy_record"]["frame_id"] == "f1"
+    report = evaluate_records(records, [sample])
+    assert report["accuracy"] == 1.0
+    assert report["annotator_api_measurements"]["mean_latency_ms"] is None

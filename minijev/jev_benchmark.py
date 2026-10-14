@@ -197,6 +197,69 @@ def load_records(path: str | Path) -> list[dict[str, Any]]:
     return records
 
 
+def load_result_records(path: str | Path, samples: Sequence[JevSample]) -> list[dict[str, Any]]:
+    """Load native JSONL or the earlier frame-level validation JSON.
+
+    The first live validation finished before this batch runner existed.  Its
+    artifact is a pretty-printed object with a ``records`` array and legacy field
+    names.  Importing it prevents hundreds of already-paid API calls from being
+    repeated.  The converter is intentionally one-way and in-memory: the captured
+    file remains immutable evidence.
+    """
+    source = Path(path)
+    text = source.read_text(encoding="utf-8")
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return load_records(source)
+    if isinstance(payload, list):
+        return [dict(record) for record in payload]
+    if not isinstance(payload, Mapping) or not isinstance(payload.get("records"), list):
+        raise ValueError(f"{source} is neither benchmark JSONL nor an object containing records")
+    records = payload["records"]
+    if not records or "ours_route" not in records[0]:
+        return [dict(record) for record in records]
+
+    by_frame: dict[str, list[JevSample]] = {}
+    for sample in samples:
+        frame_id = sample.metadata.get("frame_id")
+        if frame_id is not None:
+            by_frame.setdefault(str(frame_id), []).append(sample)
+    converted: list[dict[str, Any]] = []
+    for record in records:
+        frame_id = str(record.get("frame_id", ""))
+        candidates = by_frame.get(frame_id, [])
+        sample = next((row for row in candidates if row.query == record.get("query")), None)
+        if sample is None:
+            raise ValueError(f"legacy result frame {frame_id!r} cannot be joined to the benchmark")
+        probabilities = {str(key): float(value) for key, value in record["jev_route_probabilities"].items()}
+        converted.append(
+            {
+                "schema_version": "jev-label-validation-legacy",
+                "prompt_version": "legacy-unversioned",
+                "sample_id": sample_key(sample),
+                "query": sample.query,
+                "context": list(sample.context),
+                "ground_truth": sample.route.value,
+                "frame_id": frame_id,
+                "semantic_group_id": sample.metadata.get("semantic_group_id"),
+                "status": "ok",
+                "available": True,
+                "jev_prediction": record["jev_route"],
+                "correct": record["jev_route"] == sample.route.value,
+                "agreement_01": int(record["jev_route"] == sample.route.value),
+                "jev_probabilities": probabilities,
+                "jev_confidence": float(record["jev_route_confidence"]),
+                "derived_confidence": chance_corrected_top(list(probabilities.values())),
+                "model": record.get("model"),
+                "cost": record.get("cost"),
+                "latency_ms": None,
+                "legacy_record": record,
+            }
+        )
+    return converted
+
+
 def run_annotations(
     samples: Sequence[JevSample],
     client: DecisionClient,
@@ -329,7 +392,7 @@ def evaluate_records(records: Sequence[Mapping[str, Any]], samples: Sequence[Jev
     formula_gaps = [abs(float(record["jev_confidence"]) - float(record["derived_confidence"])) for record in aligned_records]
     report["confidence_formula_mae"] = sum(formula_gaps) / len(formula_gaps) if formula_gaps else 0.0
     costs = [float(record["cost"]) for record in aligned_records if record.get("cost") is not None]
-    latencies = [float(record["latency_ms"]) for record in aligned_records]
+    latencies = [float(record["latency_ms"]) for record in aligned_records if record.get("latency_ms") is not None]
     report["annotator_api_measurements"] = {
         "calls": len(aligned_records),
         "total_cost": sum(costs),
@@ -447,7 +510,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             retry_backoff_s=args.retry_backoff_s,
         )
     else:
-        records = load_records(args.results)
+        records = load_result_records(args.results, samples)
     report = evaluate_records(records, samples)
     if args.checkpoint:
         compare_minijev(report, records, samples, args.checkpoint)

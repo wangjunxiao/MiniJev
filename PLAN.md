@@ -45,6 +45,16 @@ reward 与人工误路由代价齐全后再启动。
 两个语料上同样的形态：`rag` 一致 92%/98%，其余全崩。关键槽位 **`needs_external`：
 我说 33–48% 需要外部，Jev 说 95.7–97.3%。**
 
+新 sidecar 报告器把已付费结果与两个 checkpoint 在**完全相同的代表措辞**上重新对齐：
+
+| 语料 | Jev acc / mF1 / collapse | pooled acc / mF1 / collapse | transformer acc / mF1 / collapse |
+|---|---:|---:|---:|
+| 密封产品基准（603 帧） | 0.337 / 0.242 / **87.2%** | **0.386 / 0.381 / 32.2%** | 0.320 / 0.286 / 35.7% |
+| 手写 hard benchmark（46 帧） | 0.413 / 0.350 / **57.9%** | **0.543 / 0.540 / 15.8%** | 0.543 / 0.543 / 36.8% |
+
+逐样本报告在 `models/jev_{handwritten,sealed}_{pooled,transformer}_comparison.json`。它们也包含
+confusion、ECE/AURC、Brier/NLL、only-Jev / only-MiniJev 和完整 disagreement review queue。
+
 #### 但对照把「真值是问题」这个判定推翻了
 
 对一个「材料明明在请求里」的 query 做对照：
