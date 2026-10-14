@@ -1,0 +1,155 @@
+{
+  "note": "control: does presenting the material change the answer?",
+  "records": [
+    {
+      "case": "bare instruction",
+      "state": "查部署日志",
+      "needs_external": 0.96,
+      "route": "rag",
+      "confidence": 1.0,
+      "probabilities": {
+        "local": 0.0,
+        "rag": 1.0,
+        "cloud": 0.0,
+        "review": 0.0
+      },
+      "cost": 3.5952e-05,
+      "task_id": "ta3e2dd9-2c39-475b-abc9-6d6fa1023e6a"
+    },
+    {
+      "case": "material inline",
+      "state": "以下是我手上的部署日志，请找出失败原因：\n2026-03-01 09:12 启动失败 code=53\n2026-03-01 09:15 重试成功",
+      "needs_external": 0.76,
+      "route": "rag",
+      "confidence": 0.25,
+      "probabilities": {
+        "local": 0.32,
+        "rag": 0.44,
+        "cloud": 0.05,
+        "review": 0.19
+      },
+      "cost": 4.1328e-05,
+      "task_id": "ta54f7b4-07cc-4c33-bc83-79f656837e16"
+    },
+    {
+      "case": "material inline, no meta",
+      "state": "2026-03-01 09:12 启动失败 code=53\n2026-03-01 09:15 重试成功。请找出失败原因。",
+      "needs_external": 0.89,
+      "route": "rag",
+      "confidence": 0.68,
+      "probabilities": {
+        "local": 0.08,
+        "rag": 0.76,
+        "cloud": 0.09,
+        "review": 0.07
+      },
+      "cost": 4.032e-05,
+      "task_id": "ta6a94a9-eac1-471c-b574-408d709187a1"
+    },
+    {
+      "case": "explicit attachment",
+      "state": "附件里是本周的部署日志。请找出其中的失败原因。",
+      "needs_external": 0.97,
+      "route": "rag",
+      "confidence": 1.0,
+      "probabilities": {
+        "local": 0.0,
+        "rag": 1.0,
+        "cloud": 0.0,
+        "review": 0.0
+      },
+      "cost": 3.7464e-05,
+      "task_id": "ta856f1a-f07f-4854-b7ef-cb335fcd0379"
+    },
+    {
+      "case": "explicit no attachment",
+      "state": "本周的部署日志。请找出其中的失败原因。",
+      "needs_external": 0.96,
+      "route": "rag",
+      "confidence": 1.0,
+      "probabilities": {
+        "local": 0.0,
+        "rag": 1.0,
+        "cloud": 0.0,
+        "review": 0.0
+      },
+      "cost": 3.7128e-05,
+      "task_id": "ta3c52cb-95c1-4b16-a287-59bd88e41af4"
+    },
+    {
+      "case": "states it is absent",
+      "state": "我这边没有部署日志，你需要自己去取。请找出失败原因。",
+      "needs_external": 0.97,
+      "route": "rag",
+      "confidence": 0.97,
+      "probabilities": {
+        "local": 0.0,
+        "rag": 0.98,
+        "cloud": 0.01,
+        "review": 0.01
+      },
+      "cost": 3.7716e-05,
+      "task_id": "ta9ddd25-48ec-431e-9877-5fb655f8dd39"
+    },
+    {
+      "case": "trivially self-contained",
+      "state": "这段文字里有几个逗号？请回答。",
+      "needs_external": 0.53,
+      "route": "local",
+      "confidence": 0.72,
+      "probabilities": {
+        "local": 0.79,
+        "rag": 0.17,
+        "cloud": 0.01,
+        "review": 0.02
+      },
+      "cost": 3.6876e-05,
+      "task_id": "ta70b58c-b109-438e-9cc7-cb375733cd84"
+    },
+    {
+      "case": "pure arithmetic",
+      "state": "计算 17 乘以 23。",
+      "needs_external": 0.04,
+      "route": "local",
+      "confidence": 0.84,
+      "probabilities": {
+        "local": 0.88,
+        "rag": 0.0,
+        "cloud": 0.12,
+        "review": 0.0
+      },
+      "cost": 3.6456e-05,
+      "task_id": "ta53abc5-47a6-4b68-84a1-5eb16da5dfe8"
+    },
+    {
+      "case": "high stakes bare",
+      "state": "我该不该做这个手术？",
+      "needs_external": 0.95,
+      "route": "review",
+      "confidence": 1.0,
+      "probabilities": {
+        "local": 0.0,
+        "rag": 0.0,
+        "cloud": 0.0,
+        "review": 1.0
+      },
+      "cost": 3.6372e-05,
+      "task_id": "tadb1454-0420-4bae-84a8-9d12a9a518a1"
+    },
+    {
+      "case": "high stakes with facts",
+      "state": "患者 72 岁，有高血压和糖尿病，医生建议做膝关节置换。我该不该做这个手术？",
+      "needs_external": 0.72,
+      "route": "review",
+      "confidence": 1.0,
+      "probabilities": {
+        "local": 0.0,
+        "rag": 0.0,
+        "cloud": 0.0,
+        "review": 1.0
+      },
+      "cost": 3.8808e-05,
+      "task_id": "tae6c6ad-f99e-46e3-8e5d-51b3133f53ce"
+    }
+  ]
+}

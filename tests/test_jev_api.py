@@ -14,8 +14,11 @@ Two things these tests are built to catch, both of which happened elsewhere in t
 
 from __future__ import annotations
 
+import io
 import json
 import math
+import urllib.error
+from unittest.mock import patch
 
 import pytest
 
@@ -230,6 +233,42 @@ def test_a_malformed_body_is_refused():
         parse_response("not json at all")
     with pytest.raises(JevApiError):
         parse_response(json.dumps({"model": "typesafe/jev-1.13"}))
+
+
+def test_a_read_timeout_is_wrapped_not_left_to_escape():
+    """A bare `TimeoutError` from `http.client` is not a `URLError`.
+
+    A 603-call batch died on exactly this: frame 51 raised `TimeoutError` straight past the
+    client's handlers and took the whole experiment with it, losing every response. Every
+    transport failure has to arrive as one exception type the caller can catch.
+    """
+    client = JevApiClient(api_key="k")
+    with patch("urllib.request.urlopen", side_effect=TimeoutError("The read operation timed out")):
+        with pytest.raises(JevApiError) as error:
+            client.decide("state", {"q": Question(type="noul", instructions="?")})
+    assert "timed out" in str(error.value)
+    assert error.value.status is None
+
+
+def test_an_unexpected_socket_error_is_wrapped_too():
+    client = JevApiClient(api_key="k")
+    with patch("urllib.request.urlopen", side_effect=OSError("connection reset by peer")):
+        with pytest.raises(JevApiError) as error:
+            client.decide("state", {"q": Question(type="noul", instructions="?")})
+    assert "transport failure" in str(error.value)
+
+
+def test_an_http_error_carries_its_status_and_body():
+    client = JevApiClient(api_key="k")
+
+    def raise_http(*_args, **_kwargs):
+        raise urllib.error.HTTPError("u", 401, "Unauthorized", {}, io.BytesIO(b'{"message":"invalid api key"}'))
+
+    with patch("urllib.request.urlopen", side_effect=raise_http):
+        with pytest.raises(JevApiError) as error:
+            client.decide("state", {"q": Question(type="noul", instructions="?")})
+    assert error.value.status == 401
+    assert "invalid api key" in error.value.body
 
 
 # --- the adapter onto MiniJev's ladder ------------------------------------------

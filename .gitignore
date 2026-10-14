@@ -45,3 +45,7 @@ data/external/massive/derived/
 
 # Local novel / document text used to build a domain supplement.
 data/external/**/*.txt
+
+# Live Jev batch responses can contain user queries, provider task ids and raw
+# responses. Keep runs local by default; commit only deliberately redacted probes.
+data/external/jev/runs/

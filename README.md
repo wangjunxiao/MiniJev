@@ -497,6 +497,66 @@ availability and best-route coverage before an offline bandit run is attempted.
 Human-review cost and latency remain declared priors in `minijev.convert.py`; they
 must be replaced by measured values before a reward-trained policy is trusted.
 
+## Jev-1.13 benchmark sidecar
+
+`minijev.jev_api` implements the published Decisions API contract at
+`POST https://api.defapi.org/api/v1/decisions`. `minijev.jev_benchmark` turns it
+into a resumable, auditable labeling experiment. It sends only `query` and
+`context`; the benchmark route and frame metadata are joined **after** the API
+responds, preventing answer-key leakage. Results are an independent sidecar and
+the source benchmark is never rewritten.
+
+Set a rotated key for the current shell without putting it in source or shell
+history, then run a small smoke test before the full benchmark:
+
+```powershell
+$secure = Read-Host "Jev API key" -AsSecureString
+$env:JEV_API_KEY = [System.Net.NetworkCredential]::new("", $secure).Password
+$env:PYTHONPATH = "D:\jev\tinygrad;D:\jev\MiniJev"
+
+python -m minijev.jev_benchmark run `
+  --data data\sealed\frame_product_benchmark.jsonl `
+  --output data\external\jev\runs\sealed_jev.jsonl `
+  --report-out models\sealed_jev_report.json `
+  --limit 8
+
+# Continue the same append-only artifact after inspecting the smoke report.
+python -m minijev.jev_benchmark run `
+  --data data\sealed\frame_product_benchmark.jsonl `
+  --output data\external\jev\runs\sealed_jev.jsonl `
+  --report-out models\sealed_jev_report.json `
+  --checkpoint models\exp4_pooled_merged.safetensors `
+  --resume
+```
+
+Rebuild the report later without making network calls:
+
+```powershell
+python -m minijev.jev_benchmark report `
+  --data data\sealed\frame_product_benchmark.jsonl `
+  --results data\external\jev\runs\sealed_jev.jsonl `
+  --report-out models\sealed_jev_report.json `
+  --checkpoint models\exp4_pooled_merged.safetensors
+```
+
+Each successful row records the Jev label, a literal `agreement_01`, the full
+four-way distribution, reported and independently derived confidence, concrete
+model version, tokens, measured API cost/latency, task id and raw response.
+Failures are also recorded, retryable 429/5xx/transport errors use bounded
+exponential backoff, and `--resume` skips only successful sample ids. The report
+contains accuracy, macro-F1, confusion matrix, per-route scores, ECE, confidence
+spread, selective metrics, Brier/NLL, boundary-pair collapse, coverage and a full
+disagreement review queue. With `--checkpoint`, it also reports which rows only
+Jev or only MiniJev got right.
+
+Two boundaries are deliberate:
+
+- Jev output is a **candidate annotation / independent evaluator**, not automatic
+  ground truth. Disagreements need human review before any row enters training.
+- Jev's returned cost and latency measure the annotation call. They do not measure
+  the serving utility of `local`/`rag`/`cloud`/`review`, so they cannot replace the
+  RouterBench counterfactual reward table.
+
 ## Literary data supplement
 
 `python -m minijev.literary` creates a deterministic domain supplement under

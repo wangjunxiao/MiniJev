@@ -8,7 +8,79 @@
 
 ## 状态（2026-09-29 → 10-11 持续更新）
 
-### 当前轮（10-11）：接入真实 Jev API + **反推出 confidence 公式**（用户提供 key）
+### 当前轮（10-14）：Jev 批量标注与对照管线已接上
+
+单次 API client 已经升级成可复现实验工具 `minijev.jev_benchmark`：
+
+- 只把 `query/context` 发给 Jev；人工 route 与 frame metadata 在响应后才 join，防止答案泄漏；
+- append-only JSONL、逐条 flush、429/5xx/网络故障的有界指数退避、`--resume` 断点续跑；
+- 每条保存 `agreement_01`、完整四路概率、reported/derived confidence、具体模型版本、token、
+  实测 cost/latency、task id 与 raw response；
+- 报告覆盖 accuracy / macro-F1 / confusion / per-route / ECE / confidence spread / AURC、
+  Brier/NLL、边界 collapse、API coverage 和完整 disagreement review queue；
+- 可选加载任一 MiniJev checkpoint，在完全相同的成功行上给出 only-Jev / only-MiniJev 对照。
+
+输出默认放在被 git 忽略的 `data/external/jev/runs/`，因为 raw response 可能包含用户文本和 provider
+task id。Jev 标签不会覆盖 benchmark，也没有直接导出训练 JSONL 的入口；先人工复核 disagreement，
+再决定是否将候选标注纳入新的、版本化的训练集。
+
+**reward 边界仍需讲清：** API 返回的 cost/latency 是“请 Jev 做标注”的测量，不是
+`local/rag/cloud/review` 四个 action 的反事实 serving reward。它补上了 evaluator 的真实测量，
+没有替代 RouterBench 的 quality/cost/latency/availability counterfactual table；RL 仍应等真实 action
+reward 与人工误路由代价齐全后再启动。
+
+### 实验 A（标签外部验证）：**预注册判定被对照推翻**
+
+把 4 路由基准逐帧发给真实 Jev，**同一次请求问 4 个问题**（`route` + `high_stakes` + `needs_external` + `effort`），
+这样路由分歧之外还能定位**是哪个槽在吵**。603 帧 / 586 秒 / **$0.0258**。
+另有 46 帧手写 hard benchmark 复跑。
+
+#### 结果
+
+| 语料 | 一致率 | 主要基线 | Jev 的路由先验 |
+|---|---:|---:|---|
+| 密封产品基准（603 帧） | **0.3367** | 0.2919（always-local） | **rag 527/603 = 87%** |
+| 手写 hard benchmark（46 帧） | **0.4130** | 0.2609（always-rag） | rag 35/46 = 76% |
+
+两个语料上同样的形态：`rag` 一致 92%/98%，其余全崩。关键槽位 **`needs_external`：
+我说 33–48% 需要外部，Jev 说 95.7–97.3%。**
+
+#### 但对照把「真值是问题」这个判定推翻了
+
+对一个「材料明明在请求里」的 query 做对照：
+
+| 情形 | needs_external | 路由 | **Jev 自己的 confidence** |
+|---|---:|---|---:|
+| `查部署日志`（裸指令） | 0.96 | rag | **1.00** |
+| **日志原文贴在请求里** | 0.76 | rag | **0.25** |
+| `计算 17 乘以 23` | **0.04** | **local** | 0.84 |
+
+**量纲没坏**（纯算术 → 0.04 → local）。但除算术外几乎**什么都 >0.75**，连原文贴进去也是 0.76。
+「材料在场」0.873 vs「材料缺席」0.960，**只移动 +0.087**。
+
+**所以至少有三个混淆无法排除**：
+
+1. **我给 `rag` 写的 criteria 是 "Requires an external source: a document..."**——
+   而**贴在请求里的日志本身也是一份 document**。我的措辞把「文档在请求里」和「需要去找文档」混为一谈。
+2. `needs_external` 在我的措辞下**接近饱和**，无法区分。
+3. **Jev 在该语料上接近常量预测器**（87% 输出 rag），在这里不是有效判别器。
+
+同时：**Jev 的 confidence 从 1.00 掉到 0.25**——它**确实感知到**材料在场与否，只是 argmax 没动。
+
+#### 结论（比预注册判定弱，但更可信）
+
+**实验 A 目前无法裁定谁的标签更好。** 它证明的是：
+**「拿外部模型问一遍然后比一致率」不是有效的标签验证程序——必须先用一个对照证明这个问题能区分。**
+
+代价 $0.0263；两个 fixture 已存盘、可离线重放。
+
+#### 过程里修掉的一个真 bug
+
+**client 漏接了读超时。** `http.client` 的读超时抛**裸 `TimeoutError`，不是 `URLError`**，
+从两个 handler 之间穿过去了——603 次调用跑到**第 51 帧整批挂掉**，已拿到的响应全丢。
+现在 `TimeoutError` / `OSError` 都包成 `JevApiError`，补了 3 个测试；批量任务改成**逐条落盘、可断点续跑**。
+
+
 
 #### API 可用性（实测）
 

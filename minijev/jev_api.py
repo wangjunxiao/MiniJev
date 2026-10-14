@@ -227,6 +227,16 @@ class JevApiClient:
             raise JevApiError(f"the API returned HTTP {error.code}", status=error.code, body=detail) from error
         except urllib.error.URLError as error:
             raise JevApiError(f"could not reach {self.endpoint}: {error.reason}") from error
+        except TimeoutError as error:
+            # A read timeout arrives as a bare `TimeoutError` from `http.client`, *not* wrapped in
+            # `URLError`, so the handlers above miss it. A long batch died mid-run on this: frame
+            # 51 of 603 raised straight past the client and took the whole experiment with it.
+            raise JevApiError(f"the request to {self.endpoint} timed out after {self.timeout}s") from error
+        except OSError as error:
+            # `URLError` and `TimeoutError` are both `OSError` subclasses, so anything reaching
+            # here is a socket-level failure of some other kind. Wrapping it keeps every transport
+            # failure behind one exception type for the caller.
+            raise JevApiError(f"transport failure talking to {self.endpoint}: {error}") from error
         return parse_response(body)
 
 
